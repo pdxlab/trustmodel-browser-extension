@@ -7,6 +7,8 @@
 
 // ── Shadow AI traffic detection (watches outbound calls to known AI platforms) ──
 importScripts("ai-detect.js");
+// ── Workspace enrollment + reporting (only transmits when enrolled) ──
+importScripts("enroll.js");
 
 // ── Score Database (bundled — 281 systems mapped to domains) ──
 
@@ -184,5 +186,33 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     clearShadowAI(sendResponse);
     return true; // async response
   }
+  // ── Workspace enrollment (TRUS-2535) ──
+  if (request.action === "getEnrollment") {
+    getEnrollment((enr) => sendResponse(enr));
+    return true;
+  }
+  if (request.action === "connectWorkspace") {
+    connectWithInvite(request.code, request.apiBase, sendResponse);
+    return true;
+  }
+  if (request.action === "disconnectWorkspace") {
+    disconnect(sendResponse);
+    return true;
+  }
+  if (request.action === "reportNow") {
+    transmitNow(sendResponse);
+    return true;
+  }
   return true;
+});
+
+// ── Enrollment lifecycle: adopt managed config, then report on a schedule ──
+function tmBootstrapReporting() {
+  applyManagedConfig(() => {});
+  chrome.alarms.create("tm-report", { periodInMinutes: 15 });
+}
+chrome.runtime.onInstalled.addListener(tmBootstrapReporting);
+chrome.runtime.onStartup.addListener(tmBootstrapReporting);
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === "tm-report") transmitNow(() => {});
 });

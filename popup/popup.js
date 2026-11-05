@@ -180,3 +180,68 @@ function loadShadow() {
 }
 
 loadShadow();
+
+// ── Workspace: connect this extension to your org so IT sees your AI usage ──
+
+function renderWorkspace(enr) {
+  const el = document.getElementById("workspace");
+  if (!el) return;
+
+  if (enr && enr.ingestToken) {
+    const org = enr.org || "your organization";
+    const who = enr.email ? ` as ${enr.email}` : "";
+    el.innerHTML =
+      `<h3>Workspace</h3>` +
+      `<div class="ws-connected">✓ Reporting to <span class="org">${org}</span>${who}</div>` +
+      `<div class="ws-sub">Your AI usage is shared with your organization's TrustModel console.</div>` +
+      `<div class="ws-row">` +
+        `<button class="ws-btn" id="ws-report">Report now</button>` +
+        (enr.managed ? "" : `<button class="ws-btn secondary" id="ws-disc">Disconnect</button>`) +
+      `</div>`;
+    const rep = document.getElementById("ws-report");
+    if (rep)
+      rep.addEventListener("click", () => {
+        rep.textContent = "Reporting…";
+        rep.disabled = true;
+        chrome.runtime.sendMessage({ action: "reportNow" }, () => {
+          rep.textContent = "Report now";
+          rep.disabled = false;
+        });
+      });
+    const disc = document.getElementById("ws-disc");
+    if (disc)
+      disc.addEventListener("click", () =>
+        chrome.runtime.sendMessage({ action: "disconnectWorkspace" }, loadWorkspace),
+      );
+    return;
+  }
+
+  el.innerHTML =
+    `<h3>Workspace</h3>` +
+    `<div class="ws-note">Invited by your employer? Paste the code from your invite email to connect — ` +
+    `your AI usage is then shared with your organization. Nothing is sent until you connect.</div>` +
+    `<div class="ws-row">` +
+      `<input class="ws-input" id="ws-code" placeholder="Invite code" />` +
+      `<button class="ws-btn" id="ws-connect">Connect</button>` +
+    `</div>` +
+    `<div class="ws-err" id="ws-err"></div>`;
+  const btn = document.getElementById("ws-connect");
+  btn.addEventListener("click", () => {
+    const code = document.getElementById("ws-code").value;
+    document.getElementById("ws-err").textContent = "";
+    btn.textContent = "Connecting…";
+    btn.disabled = true;
+    chrome.runtime.sendMessage({ action: "connectWorkspace", code }, (resp) => {
+      btn.textContent = "Connect";
+      btn.disabled = false;
+      if (resp && resp.ok) loadWorkspace();
+      else document.getElementById("ws-err").textContent = (resp && resp.error) || "Could not connect.";
+    });
+  });
+}
+
+function loadWorkspace() {
+  chrome.runtime.sendMessage({ action: "getEnrollment" }, renderWorkspace);
+}
+
+loadWorkspace();
