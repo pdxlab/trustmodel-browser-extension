@@ -68,13 +68,13 @@ Show independent trust ratings (TrustScore) for AI systems and websites the user
 - **Data collected: NONE transmitted.** All AI-usage metadata is stored locally on the device and never leaves the browser. (If asked "what data do you collect," the honest answer for this version is: none is sent off-device.)
 
 **Privacy policy URL**
-https://trustmodel.ai/extension-privacy   (host `store/privacy-policy.html` there before submitting — Google requires a reachable URL)
+https://trustmodel.ai/chrome-extension-privacy   (host `store/privacy-policy.html` there before submitting — Google requires a reachable URL)
 
 ---
 
 ## Submission checklist
 1. ☑ Zip built: `trustmodel-safety-check-v1.1.0.zip` (manifest + background.js + ai-detect.js + content.js + popup/ + icons/)
-2. ☐ Host `privacy-policy.html` at trustmodel.ai/extension-privacy (or your chosen URL) and paste it in the form
+2. ☐ Host `privacy-policy.html` at trustmodel.ai/chrome-extension-privacy (or your chosen URL) and paste it in the form
 3. ☐ Upload zip → fill the fields above → add 3 screenshots + 2 promo tiles
 4. ☐ Set visibility (Public / Unlisted) and submit for review
 5. Google review typically takes a few days for an extension requesting webRequest + host permissions. Expect possible questions on the host-permission justification — the answer is "observe known AI endpoints only, metadata-only, on-device."
