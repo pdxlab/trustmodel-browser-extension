@@ -87,3 +87,50 @@ function showScore(data, url) {
     </div>
   `;
 }
+
+// ── Shadow AI activity panel: external AI platforms this browser has talked to ──
+
+function timeAgo(ts) {
+  if (!ts) return "";
+  const s = Math.floor((Date.now() - ts) / 1000);
+  if (s < 60) return "just now";
+  const m = Math.floor(s / 60);
+  if (m < 60) return m + "m ago";
+  const h = Math.floor(m / 60);
+  if (h < 24) return h + "h ago";
+  return Math.floor(h / 24) + "d ago";
+}
+
+function renderShadow(inv) {
+  const el = document.getElementById("shadow");
+  if (!el) return;
+  if (!inv || !inv.serviceCount) {
+    el.innerHTML =
+      `<h3>Shadow AI activity</h3>` +
+      `<div class="sa-empty">No external AI traffic detected yet. As your browser talks to AI platforms ` +
+      `(ChatGPT, Claude, Gemini, Copilot…), they appear here.</div>`;
+    return;
+  }
+  const items = inv.services.slice(0, 8).map((s) => {
+    const pages = Object.keys(s.pages || {}).length;
+    return (
+      `<div class="sa-item">` +
+        `<div><div class="sa-name">${s.service}</div>` +
+        `<div class="sa-cat">${s.category} · ${pages} page${pages === 1 ? "" : "s"} · ${timeAgo(s.lastSeen)}</div></div>` +
+        `<div class="sa-hits">${s.hits}×</div>` +
+      `</div>`
+    );
+  }).join("");
+  el.innerHTML =
+    `<h3>Shadow AI activity <span class="count">${inv.serviceCount} service${inv.serviceCount === 1 ? "" : "s"}</span></h3>` +
+    items +
+    `<div style="margin-top:8px;text-align:right"><button class="sa-clear" id="sa-clear">clear</button></div>`;
+  const btn = document.getElementById("sa-clear");
+  if (btn) btn.addEventListener("click", () => chrome.runtime.sendMessage({ action: "clearShadowAI" }, loadShadow));
+}
+
+function loadShadow() {
+  chrome.runtime.sendMessage({ action: "getShadowAI" }, renderShadow);
+}
+
+loadShadow();
