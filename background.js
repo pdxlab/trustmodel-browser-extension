@@ -5,6 +5,9 @@
  * Updates the extension badge with the trust score color.
  */
 
+// ── Shadow AI traffic detection (watches outbound calls to known AI platforms) ──
+importScripts("ai-detect.js");
+
 // ── Score Database (bundled — 281 systems mapped to domains) ──
 
 const DOMAIN_SCORES = {
@@ -156,12 +159,30 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
   } catch {}
 });
 
+// ── Shadow AI: observe outbound traffic to the curated AI endpoints only ──
+// (No request bodies are read; detection is metadata only — see ai-detect.js.)
+chrome.webRequest.onBeforeRequest.addListener(
+  (details) => {
+    recordDetection(details.url, details.initiator, details.documentUrl);
+  },
+  { urls: AI_MATCH_PATTERNS },
+  []
+);
+
 // ── Message handler for popup ──
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "getScore") {
-    const data = lookupDomain(request.url);
-    sendResponse(data);
+    sendResponse(lookupDomain(request.url));
+    return true;
+  }
+  if (request.action === "getShadowAI") {
+    getShadowAI(sendResponse);
+    return true; // async response
+  }
+  if (request.action === "clearShadowAI") {
+    clearShadowAI(sendResponse);
+    return true; // async response
   }
   return true;
 });
