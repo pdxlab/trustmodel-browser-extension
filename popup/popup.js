@@ -8,10 +8,12 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
 
   chrome.runtime.sendMessage({ action: "getScore", url: tab.url }, (data) => {
     if (!data) {
+      let host = "";
+      try { host = new URL(tab.url).hostname.replace("www.", ""); } catch {}
       showNoScore(
-        `No TrustScore available for this site.<br><br>` +
-        `We've scored 281 AI systems so far.<br>` +
-        `<a href="https://trustmodel.ai/leaderboard" target="_blank" style="color:#0891b2">Check the full leaderboard →</a>`
+        `No TrustScore yet for this site.<br><br>` +
+        `It hasn't been assessed. You can ask TrustModel to score it — or verify it if it's yours.`,
+        host
       );
       return;
     }
@@ -19,13 +21,56 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
   });
 });
 
-function showNoScore(msg) {
+function showNoScore(msg, host) {
+  let flag = "";
+  if (host) {
+    const subj = encodeURIComponent(`Please assess ${host} with TrustModel`);
+    const body = encodeURIComponent(
+      `Please create a preliminary TrustScore for ${host} and reach out to them for a verified evaluation.`
+    );
+    flag = `
+      <div class="verify" style="border-top:none">
+        <a class="vbtn vprimary" href="mailto:verify@trustmodel.ai?subject=${subj}&body=${body}">Request a TrustScore for ${host}</a>
+        <a class="vbtn vsecondary" href="https://trustmodel.ai/get-verified?domain=${encodeURIComponent(host)}&src=ext" target="_blank">This is my site — Get Verified</a>
+      </div>`;
+  }
   document.getElementById("content").innerHTML = `
     <div class="no-score">
       <div class="icon">🔍</div>
       <p>${msg}</p>
-    </div>
+    </div>${flag}
   `;
+}
+
+// Build the "Get Verified" / demand block: an owner can claim + verify their
+// site; a customer can email the vendor to demand verification, or flag it to
+// TrustModel. The displayed score is always a preliminary, outside-in estimate.
+function buildVerify(name, host, score) {
+  if (!host) return "";
+  const verifyUrl = `https://trustmodel.ai/get-verified?domain=${encodeURIComponent(host)}&src=ext`;
+  const askSubject = encodeURIComponent(`Is ${name} independently verified by TrustModel?`);
+  const askBody = encodeURIComponent(
+    `Hi ${name} team,\n\n` +
+    `I use ${name} and I'd like to know whether your platform has an independent AI trust & safety assessment.\n\n` +
+    `TrustModel.ai currently shows a preliminary, outside-in TrustScore of ${score}/10 for ${host} — ` +
+    `based only on public signals, not verified by your team.\n\n` +
+    `Please consider a verified TrustModel evaluation so your customers can see an accurate, independent rating:\n` +
+    `https://trustmodel.ai/get-verified?domain=${host}\n\nThank you.`
+  );
+  const askMail = `mailto:support@${host}?subject=${askSubject}&body=${askBody}`;
+  const flagSubject = encodeURIComponent(`Please verify ${name} (${host})`);
+  const flagBody = encodeURIComponent(
+    `I'm a user of ${name} (${host}). Please reach out to get them an independent, verified TrustModel evaluation.\n\n` +
+    `Current preliminary score: ${score}/10.`
+  );
+  const flagMail = `mailto:verify@trustmodel.ai?subject=${flagSubject}&body=${flagBody}`;
+  return `
+    <div class="verify">
+      <div class="vtitle">Make this official</div>
+      <a class="vbtn vprimary" href="${verifyUrl}" target="_blank">This is my site — Get Verified</a>
+      <a class="vbtn vsecondary" href="${askMail}">Ask ${name} to get verified</a>
+      <div class="vhint">Not the owner? <a href="${flagMail}">flag it to TrustModel →</a></div>
+    </div>`;
 }
 
 function showScore(data, url) {
@@ -58,8 +103,7 @@ function showScore(data, url) {
   if (data.score < 6.0) {
     ctaHtml = `
       <div class="cta-low">
-        <p><strong>${data.name}</strong> scored <strong>${data.score}/10</strong> — below the "Generally Safe" threshold of 6.0.<br><br>
-        If you rely on this system, encourage the vendor to get a <a href="https://trustmodel.ai/developers" target="_blank">detailed TrustModel evaluation</a> to identify and fix risks.</p>
+        <p><strong>${data.name}</strong> scored <strong>${data.score}/10</strong> — below the "Generally Safe" threshold of 6.0. See the verification options below.</p>
       </div>
     `;
   }
@@ -74,8 +118,9 @@ function showScore(data, url) {
       </div>
       <div class="system-name">${data.name}</div>
       <div style="font-size: 10px; color: #94a3b8; margin: 2px 0 6px;">${hostname} · ${data.type.toUpperCase()}</div>
-      <span class="tier-badge" style="background: ${tierBg}; color: ${tierText};">${data.tier}</span>
+      <span class="tier-badge" style="background: ${tierBg}; color: ${tierText};">${data.tier}</span><span class="prelim-badge">Preliminary</span>
     </div>
+    <div class="disclaimer"><strong>Preliminary score.</strong> An outside-in estimate from public signals — not a verified TrustModel evaluation. It can change once ${data.name} completes verification.</div>
     ${risksHtml}
     ${posHtml}
     <div class="cta">
@@ -85,6 +130,7 @@ function showScore(data, url) {
         <a class="secondary" href="https://trustmodel.ai/leaderboard" target="_blank">All Categories</a>
       </div>
     </div>
+    ${buildVerify(data.name, hostname, data.score)}
   `;
 }
 
