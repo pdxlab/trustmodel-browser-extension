@@ -1,0 +1,25 @@
+{
+  "type": "object",
+  "properties": {
+    "ingest_token": {
+      "title": "Ingest token",
+      "description": "Per-org or per-member ingest token issued by the TrustModel console. When present, the extension reports this device's AI usage to the org with zero user action.",
+      "type": "string"
+    },
+    "api_base": {
+      "title": "API base URL",
+      "description": "TrustModel API origin (defaults to https://api.trustmodel.ai).",
+      "type": "string"
+    },
+    "email": {
+      "title": "Work email",
+      "description": "Optional: the employee's work email, when the MDM can template it.",
+      "type": "string"
+    },
+    "org_id": {
+      "title": "Organization ID",
+      "description": "Optional: the TrustModel organization id, for display.",
+      "type": "string"
+    }
+  }
+}

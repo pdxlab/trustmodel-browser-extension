@@ -1,10 +1,11 @@
 {
   "manifest_version": 3,
   "name": "TrustModel.ai Safety Checks",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "TrustScores for the AI you use, plus Shadow-AI detection — see which external AI platforms your browser talks to.",
-  "permissions": ["activeTab", "storage", "webRequest"],
+  "permissions": ["activeTab", "storage", "webRequest", "alarms"],
   "host_permissions": [
+    "*://*.trustmodel.ai/*",
     "*://*.openai.com/*",
     "*://chatgpt.com/*",
     "*://*.openai.azure.com/*",
@@ -49,6 +50,9 @@
   ],
   "background": {
     "service_worker": "background.js"
+  },
+  "storage": {
+    "managed_schema": "schema.json"
   },
   "icons": {
     "16": "icons/icon16.png",
