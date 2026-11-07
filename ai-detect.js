@@ -18,7 +18,7 @@ const AI_SERVICES = [
   { id: "openai",      service: "OpenAI / ChatGPT",   category: "LLM API / chat", host: /(^|\.)openai\.com$|^chatgpt\.com$/ },
   { id: "azure-openai",service: "Azure OpenAI",        category: "LLM API",        host: /\.openai\.azure\.com$/ },
   { id: "anthropic",   service: "Anthropic / Claude",  category: "LLM API / chat", host: /(^|\.)anthropic\.com$|^claude\.ai$/ },
-  { id: "google-ai",   service: "Google Gemini / Vertex", category: "LLM API / chat", host: /^generativelanguage\.googleapis\.com$|^aiplatform\.googleapis\.com$|^gemini\.google\.com$/ },
+  { id: "google-ai",   service: "Google Gemini / Vertex", category: "LLM API / chat", host: /^generativelanguage\.googleapis\.com$|^aiplatform\.googleapis\.com$|^gemini\.google\.com$|^aistudio\.google\.com$/ },
   { id: "xai",         service: "xAI / Grok",          category: "LLM API / chat", host: /(^|\.)x\.ai$|^grok\.com$/ },
   { id: "mistral",     service: "Mistral",             category: "LLM API",        host: /^api\.mistral\.ai$/ },
   { id: "cohere",      service: "Cohere",              category: "LLM API",        host: /^api\.cohere\.(ai|com)$/ },
@@ -40,7 +40,7 @@ const AI_SERVICES = [
 const AI_MATCH_PATTERNS = [
   "*://*.openai.com/*", "*://chatgpt.com/*", "*://*.openai.azure.com/*",
   "*://*.anthropic.com/*", "*://claude.ai/*",
-  "*://generativelanguage.googleapis.com/*", "*://aiplatform.googleapis.com/*", "*://gemini.google.com/*",
+  "*://generativelanguage.googleapis.com/*", "*://aiplatform.googleapis.com/*", "*://gemini.google.com/*", "*://aistudio.google.com/*",
   "*://*.x.ai/*", "*://grok.com/*", "*://api.mistral.ai/*", "*://api.cohere.ai/*", "*://api.cohere.com/*",
   "*://*.perplexity.ai/*", "*://*.deepseek.com/*", "*://*.huggingface.co/*",
   "*://api.replicate.com/*", "*://api.together.xyz/*", "*://api.together.ai/*", "*://api.groq.com/*",

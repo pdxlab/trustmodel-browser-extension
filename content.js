@@ -7,6 +7,13 @@
   // Don't run on trustmodel.ai itself
   if (window.location.hostname.includes('trustmodel.ai')) return;
 
+  // Reliable Shadow-AI detection: a content script runs on every page load
+  // regardless of the service worker's lifecycle, so visiting an AI web UI
+  // (Gemini, Grok, ChatGPT, Claude, Perplexity…) is always recorded — unlike
+  // webRequest alone, which misses requests fired while the MV3 worker is
+  // asleep. The background classifies the host and ignores non-AI pages.
+  chrome.runtime.sendMessage({ action: 'recordPageVisit', url: window.location.href });
+
   // Ask background for score
   chrome.runtime.sendMessage(
     { action: 'getScore', url: window.location.href },

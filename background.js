@@ -186,6 +186,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     clearShadowAI(sendResponse);
     return true; // async response
   }
+  // Reliable per-page Shadow-AI detection from the content script (SW-lifecycle
+  // independent). recordDetection ignores non-AI hosts.
+  if (request.action === "recordPageVisit") {
+    const src = (sender && sender.tab && sender.tab.url) || request.url;
+    recordDetection(request.url, src, request.url);
+    sendResponse({ ok: true });
+    return true;
+  }
   // ── Workspace enrollment (TRUS-2535) ──
   if (request.action === "getEnrollment") {
     getEnrollment((enr) => sendResponse(enr));
