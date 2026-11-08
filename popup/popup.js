@@ -24,14 +24,10 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
 function showNoScore(msg, host) {
   let flag = "";
   if (host) {
-    const subj = encodeURIComponent(`Please assess ${host} with TrustModel`);
-    const body = encodeURIComponent(
-      `Please create a preliminary TrustScore for ${host} and reach out to them for a verified evaluation.`
-    );
     flag = `
       <div class="verify" style="border-top:none">
-        <a class="vbtn vprimary" href="mailto:verify@trustmodel.ai?subject=${subj}&body=${body}">Request a TrustScore for ${host}</a>
         <a class="vbtn vsecondary" href="https://trustmodel.ai/get-verified?domain=${encodeURIComponent(host)}&src=ext" target="_blank">This is my site — Get Verified</a>
+        ${rateFormHtml(host)}
       </div>`;
   }
   document.getElementById("content").innerHTML = `
@@ -40,36 +36,60 @@ function showNoScore(msg, host) {
       <p>${msg}</p>
     </div>${flag}
   `;
+  wireRateForm(host);
 }
 
-// Build the "Get Verified" / demand block: an owner can claim + verify their
-// site; a customer can email the vendor to demand verification, or flag it to
-// TrustModel. The displayed score is always a preliminary, outside-in estimate.
-function buildVerify(name, host, score) {
+// A small in-popup request form (no mail client): the request is sent to the
+// site's own support inbox AND to TrustModel, so the company hears the demand.
+function rateFormHtml(host) {
+  return `
+    <div class="vhint" style="margin-bottom:6px;">Ask the owner to get verified — your request goes to them and to TrustModel.</div>
+    <div class="ws-row" style="margin-top:0;">
+      <input class="ws-input" id="rate-email" type="email" placeholder="you@email.com" />
+      <button class="ws-btn" id="rate-send">Send</button>
+    </div>
+    <div class="ws-err" id="rate-msg" data-host="${host}"></div>`;
+}
+
+function wireRateForm(host) {
+  const btn = document.getElementById("rate-send");
+  if (!btn || !host) return;
+  btn.addEventListener("click", () => {
+    const email = (document.getElementById("rate-email").value || "").trim();
+    const msg = document.getElementById("rate-msg");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      msg.style.color = "#dc2626";
+      msg.textContent = "Enter a valid email.";
+      return;
+    }
+    btn.textContent = "Sending…";
+    btn.disabled = true;
+    chrome.runtime.sendMessage({ action: "rateRequest", domain: host, email, kind: "rate" }, (resp) => {
+      btn.textContent = "Send";
+      btn.disabled = false;
+      msg.style.color = resp && resp.ok ? "#15803d" : "#dc2626";
+      msg.textContent = resp && resp.ok ? "Request sent — thank you." : "Couldn't send. Please try again.";
+    });
+  });
+}
+
+// Owner "Get Verified" claim + the end-user request form. Hidden once a site is
+// verified (nothing to ask for).
+function buildVerify(name, host, score, verified) {
   if (!host) return "";
+  if (verified) {
+    return `
+      <div class="verify">
+        <div class="vtitle">Verified</div>
+        <div class="ws-connected">✓ ${name} has a verified TrustModel evaluation.</div>
+      </div>`;
+  }
   const verifyUrl = `https://trustmodel.ai/get-verified?domain=${encodeURIComponent(host)}&src=ext`;
-  const askSubject = encodeURIComponent(`Is ${name} independently verified by TrustModel?`);
-  const askBody = encodeURIComponent(
-    `Hi ${name} team,\n\n` +
-    `I use ${name} and I'd like to know whether your platform has an independent AI trust & safety assessment.\n\n` +
-    `TrustModel.ai currently shows a preliminary, outside-in TrustScore of ${score}/10 for ${host} — ` +
-    `based only on public signals, not verified by your team.\n\n` +
-    `Please consider a verified TrustModel evaluation so your customers can see an accurate, independent rating:\n` +
-    `https://trustmodel.ai/get-verified?domain=${host}\n\nThank you.`
-  );
-  const askMail = `mailto:support@${host}?subject=${askSubject}&body=${askBody}`;
-  const flagSubject = encodeURIComponent(`Please verify ${name} (${host})`);
-  const flagBody = encodeURIComponent(
-    `I'm a user of ${name} (${host}). Please reach out to get them an independent, verified TrustModel evaluation.\n\n` +
-    `Current preliminary score: ${score}/10.`
-  );
-  const flagMail = `mailto:verify@trustmodel.ai?subject=${flagSubject}&body=${flagBody}`;
   return `
     <div class="verify">
       <div class="vtitle">Make this official</div>
       <a class="vbtn vprimary" href="${verifyUrl}" target="_blank">This is my site — Get Verified</a>
-      <a class="vbtn vsecondary" href="${askMail}">Ask ${name} to get verified</a>
-      <div class="vhint">Not the owner? <a href="${flagMail}">flag it to TrustModel →</a></div>
+      ${rateFormHtml(host)}
     </div>`;
 }
 
@@ -117,10 +137,10 @@ function showScore(data, url) {
         </div>
       </div>
       <div class="system-name">${data.name}</div>
-      <div style="font-size: 10px; color: #94a3b8; margin: 2px 0 6px;">${hostname} · ${data.type.toUpperCase()}</div>
-      <span class="tier-badge" style="background: ${tierBg}; color: ${tierText};">${data.tier}</span><span class="prelim-badge">Preliminary</span>
+      <div style="font-size: 10px; color: #94a3b8; margin: 2px 0 6px;">${hostname} · ${String(data.type || "site").toUpperCase()}</div>
+      <span class="tier-badge" style="background: ${tierBg}; color: ${tierText};">${data.tier}</span>${data.verified ? `<span class="prelim-badge" style="background:#dcfce7;color:#15803d;">✓ Verified</span>` : `<span class="prelim-badge">Preliminary</span>`}
     </div>
-    <div class="disclaimer"><strong>Preliminary score.</strong> An outside-in estimate from public signals — not a verified TrustModel evaluation. It can change once ${data.name} completes verification.</div>
+    ${data.verified ? "" : `<div class="disclaimer"><strong>Preliminary score.</strong> An outside-in estimate from public signals (privacy policy, trust center, security, public AI use) — not a verified TrustModel evaluation. It can change once ${data.name} completes verification.</div>`}
     ${risksHtml}
     ${posHtml}
     <div class="cta">
@@ -130,8 +150,9 @@ function showScore(data, url) {
         <a class="secondary" href="https://trustmodel.ai/leaderboard" target="_blank">All Categories</a>
       </div>
     </div>
-    ${buildVerify(data.name, hostname, data.score)}
+    ${buildVerify(data.name, hostname, data.score, data.verified)}
   `;
+  wireRateForm(hostname);
 }
 
 // ── Shadow AI activity panel: external AI platforms this browser has talked to ──
