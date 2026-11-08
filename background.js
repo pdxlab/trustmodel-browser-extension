@@ -158,7 +158,7 @@ function fetchSiteScore(url, cb) {
       .then((j) => {
         let data;
         if (j && j.assessed && j.trust_score != null) {
-          const verified = j.score_tier === "verified";
+          const verified = j.score_tier === "verified" || j.score_tier === "monitored";
           data = {
             name: j.name || host,
             score: Math.round(Number(j.trust_score)) / 10, // 0-100 → 0-10
