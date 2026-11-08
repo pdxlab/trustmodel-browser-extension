@@ -1,10 +1,39 @@
 {
   "manifest_version": 3,
-  "name": "TrustModel Safety Check",
-  "version": "1.0.0",
-  "description": "See the TrustScore for every AI system as you browse. Independent trust ratings for AI models, enterprise apps, browser extensions, and MCP servers.",
-  "permissions": ["activeTab", "storage"],
-  "host_permissions": [],
+  "name": "TrustModel.ai Safety Checks",
+  "version": "2.1.0",
+  "description": "TrustScores for the AI you use, plus Shadow-AI detection — see which external AI platforms your browser talks to.",
+  "permissions": ["activeTab", "storage", "webRequest", "alarms"],
+  "host_permissions": [
+    "*://*.trustmodel.ai/*",
+    "*://*.openai.com/*",
+    "*://chatgpt.com/*",
+    "*://*.openai.azure.com/*",
+    "*://*.anthropic.com/*",
+    "*://claude.ai/*",
+    "*://generativelanguage.googleapis.com/*",
+    "*://aiplatform.googleapis.com/*",
+    "*://gemini.google.com/*",
+    "*://aistudio.google.com/*",
+    "*://*.x.ai/*",
+    "*://grok.com/*",
+    "*://api.mistral.ai/*",
+    "*://api.cohere.ai/*",
+    "*://api.cohere.com/*",
+    "*://*.perplexity.ai/*",
+    "*://*.deepseek.com/*",
+    "*://*.huggingface.co/*",
+    "*://api.replicate.com/*",
+    "*://api.together.xyz/*",
+    "*://api.together.ai/*",
+    "*://api.groq.com/*",
+    "*://*.githubcopilot.com/*",
+    "*://copilot.microsoft.com/*",
+    "*://api.elevenlabs.io/*",
+    "*://api.stability.ai/*",
+    "*://*.character.ai/*",
+    "*://*.poe.com/*"
+  ],
   "action": {
     "default_popup": "popup/popup.html",
     "default_icon": {
@@ -22,6 +51,9 @@
   ],
   "background": {
     "service_worker": "background.js"
+  },
+  "storage": {
+    "managed_schema": "schema.json"
   },
   "icons": {
     "16": "icons/icon16.png",

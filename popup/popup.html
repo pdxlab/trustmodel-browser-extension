@@ -38,6 +38,40 @@
 
   .footer { padding: 12px 20px; text-align: center; border-top: 1px solid #f1f5f9; }
   .footer a { font-size: 10px; color: #0891b2; text-decoration: none; }
+
+  .prelim-badge { display: inline-block; margin-left: 6px; padding: 3px 8px; border-radius: 12px; font-size: 10px; font-weight: 700; background: #e2e8f0; color: #475569; vertical-align: middle; }
+  .disclaimer { margin: 0 20px 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px; font-size: 10px; color: #64748b; line-height: 1.45; }
+  .disclaimer strong { color: #475569; }
+  .verify { padding: 12px 20px 4px; border-top: 1px solid #f1f5f9; }
+  .verify .vtitle { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: #94a3b8; margin-bottom: 8px; }
+  .verify a.vbtn, .verify button.vbtn { display: block; width: 100%; text-align: center; padding: 10px; border-radius: 8px; font-size: 12px; font-weight: 700; text-decoration: none; border: none; cursor: pointer; margin-bottom: 8px; font-family: inherit; }
+  .verify .vprimary { background: #0891b2; color: #fff; }
+  .verify .vsecondary { background: #fff; color: #0891b2; border: 1.5px solid #0891b2; }
+  .verify .vhint { font-size: 10px; color: #94a3b8; text-align: center; margin-bottom: 4px; }
+  .verify .vhint a { color: #0891b2; text-decoration: none; font-weight: 600; }
+
+  .workspace { padding: 14px 20px; border-top: 6px solid #f8fafc; }
+  .workspace h3 { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: #94a3b8; margin-bottom: 8px; }
+  .ws-connected { font-size: 12px; color: #0f172a; }
+  .ws-connected .org { font-weight: 700; }
+  .ws-sub { font-size: 10px; color: #94a3b8; margin-top: 2px; line-height: 1.4; }
+  .ws-note { font-size: 10px; color: #94a3b8; line-height: 1.45; }
+  .ws-row { display: flex; gap: 8px; margin-top: 10px; }
+  .ws-input { flex: 1; padding: 8px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 11px; }
+  .ws-btn { padding: 8px 12px; border-radius: 6px; font-size: 11px; font-weight: 700; border: none; cursor: pointer; background: #0891b2; color: #fff; }
+  .ws-btn:disabled { opacity: .6; cursor: default; }
+  .ws-btn.secondary { background: #f1f5f9; color: #475569; }
+  .ws-err { font-size: 10px; color: #dc2626; margin-top: 6px; min-height: 12px; }
+
+  .shadow { padding: 14px 20px; border-top: 6px solid #f8fafc; }
+  .shadow h3 { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: #94a3b8; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+  .shadow .count { color: #0891b2; font-weight: 800; }
+  .sa-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #f8fafc; }
+  .sa-name { font-size: 12px; font-weight: 600; color: #0f172a; }
+  .sa-cat { font-size: 10px; color: #94a3b8; }
+  .sa-hits { font-size: 11px; font-weight: 700; color: #0891b2; white-space: nowrap; }
+  .sa-empty { font-size: 11px; color: #64748b; line-height: 1.5; }
+  .sa-clear { font-size: 10px; color: #94a3b8; text-decoration: underline; cursor: pointer; background: none; border: none; padding: 0; }
 </style>
 </head>
 <body>
@@ -52,6 +86,10 @@
       <p>Loading...</p>
     </div>
   </div>
+
+  <div class="shadow" id="shadow"></div>
+
+  <div class="workspace" id="workspace"></div>
 
   <div class="footer">
     <a href="https://trustmodel.ai/leaderboard" target="_blank">trustmodel.ai/leaderboard — 281 systems scored</a>

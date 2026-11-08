@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy Policy — TrustModel Safety Check (Chrome Extension)</title>
+<style>
+  body{max-width:760px;margin:40px auto;padding:0 20px;font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;color:#23323f}
+  h1{color:#0d1b2a;font-size:26px;margin-bottom:4px}
+  .date{color:#64748b;font-size:13px;margin-bottom:24px}
+  h2{color:#0b5563;font-size:18px;margin-top:28px}
+  code{background:#f3f8f9;border:1px solid #e2e8f0;border-radius:4px;padding:1px 5px;font-size:14px}
+  a{color:#0b5563}
+  .box{background:#f3f8f9;border:1px solid #cfe4e6;border-radius:8px;padding:14px 16px;margin:16px 0}
+</style>
+</head>
+<body>
+  <h1>Privacy Policy — TrustModel Safety Check</h1>
+  <div class="date">Chrome Extension · Last updated: November 2026</div>
+
+  <div class="box"><b>Short version:</b> this extension does not collect, transmit, or sell any of your data. Everything it does happens on your device.</div>
+
+  <h2>What the extension does</h2>
+  <p>TrustModel Safety Check shows an independent TrustScore for AI systems and websites you visit, and detects when your browser communicates with known external AI platforms (for example OpenAI, Anthropic, Google Gemini, Microsoft/GitHub Copilot) so you can see your own "Shadow AI" usage.</p>
+
+  <h2>Data we collect and send</h2>
+  <p><b>None is sent off your device.</b> This version of the extension does not transmit any data to TrustModel or to any third party. There are no analytics, no accounts, and no tracking.</p>
+
+  <h2>What is stored locally (on your device)</h2>
+  <ul>
+    <li>A local inventory of the AI platforms your browser has contacted: the AI service name, the originating page's origin, a hit count, and timestamps. This is kept in the browser's local storage and can be cleared any time from the extension popup.</li>
+    <li>Extension settings, if any.</li>
+  </ul>
+  <p>We never read the <i>contents</i> of your network requests, prompts, messages, or page content. Detection is based on request metadata (the destination AI endpoint) only.</p>
+
+  <h2>Permissions and why they're needed</h2>
+  <ul>
+    <li><code>activeTab</code> — read the current tab's URL to show its TrustScore.</li>
+    <li><code>storage</code> — keep the local Shadow-AI inventory and settings on your device.</li>
+    <li><code>webRequest</code> and host access to a fixed list of AI-platform domains — observe (never modify) requests to those <b>specific AI services only</b>, to detect Shadow-AI usage. No other websites are accessed by the extension's background worker.</li>
+    <li>On-page indicator — a small, read-only badge shown on scored sites; it reads only the page's URL.</li>
+  </ul>
+
+  <h2>Data sharing &amp; sale</h2>
+  <p>We do not sell your data and do not share it with third parties. There is nothing to share, because nothing leaves your device.</p>
+
+  <h2>Enterprise/managed deployments</h2>
+  <p>Organizations may separately deploy a managed version of this tool that reports an AI-usage inventory to their own TrustModel tenant for IT visibility. That is a distinct, IT-administered distribution governed by the organization's own policies and agreement — it is not this public extension.</p>
+
+  <h2>Contact</h2>
+  <p>Questions: <a href="mailto:privacy@trustmodel.ai">privacy@trustmodel.ai</a> · <a href="https://trustmodel.ai">trustmodel.ai</a></p>
+</body>
+</html>

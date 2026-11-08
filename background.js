@@ -5,6 +5,11 @@
  * Updates the extension badge with the trust score color.
  */
 
+// ── Shadow AI traffic detection (watches outbound calls to known AI platforms) ──
+importScripts("ai-detect.js");
+// ── Workspace enrollment + reporting (only transmits when enrolled) ──
+importScripts("enroll.js");
+
 // ── Score Database (bundled — 281 systems mapped to domains) ──
 
 const DOMAIN_SCORES = {
@@ -125,19 +130,67 @@ function lookupDomain(url) {
   }
 }
 
+// ── Live preliminary TrustScore for ANY site (TRUS-2549) ──
+// Calls the public scan-on-demand oracle; caches per host; falls back to the
+// bundled static table offline or when a site can't be assessed.
+const TM_API_BASE = "https://api.trustmodel.ai";
+const SCORE_TTL_MS = 6 * 60 * 60 * 1000;
+
+function gradeTier(grade, verified) {
+  if (verified) return "Verified";
+  if (grade === "A") return "Highly Trusted";
+  if (grade === "B") return "Generally Safe";
+  if (grade === "C") return "Use With Caution";
+  if (grade) return "High Risk";
+  return "Preliminary";
+}
+
+function fetchSiteScore(url, cb) {
+  let host;
+  try { host = new URL(url).hostname.replace(/^www\./, ""); } catch { cb(null); return; }
+  if (!host || /(^|\.)trustmodel\.ai$/.test(host)) { cb(lookupDomain(url)); return; }
+  const key = "score:" + host;
+  chrome.storage.local.get([key], (res) => {
+    const cached = res[key];
+    if (cached && Date.now() - cached.at < SCORE_TTL_MS) { cb(cached.data); return; }
+    fetch(`${TM_API_BASE}/api/v1/public/site-score/${encodeURIComponent(host)}/`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+      .then((j) => {
+        let data;
+        if (j && j.assessed && j.trust_score != null) {
+          const verified = j.score_tier === "verified" || j.score_tier === "monitored";
+          data = {
+            name: j.name || host,
+            score: Math.round(Number(j.trust_score)) / 10, // 0-100 → 0-10
+            tier: gradeTier(j.grade, verified),
+            type: "site",
+            verified,
+            preliminary: !verified,
+          };
+        } else {
+          data = lookupDomain(url); // unreachable / not assessed → static or null
+        }
+        chrome.storage.local.set({ [key]: { at: Date.now(), data } });
+        cb(data);
+      })
+      .catch(() => cb(lookupDomain(url)));
+  });
+}
+
 // ── Update badge when tab changes ──
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.status === "complete" && tab.url) {
-    const data = lookupDomain(tab.url);
-    if (data) {
-      chrome.action.setBadgeText({ tabId, text: data.score.toString() });
-      chrome.action.setBadgeBackgroundColor({ tabId, color: getBadgeColor(data.score) });
-      chrome.action.setTitle({ tabId, title: `TrustScore: ${data.score}/10 — ${data.tier}` });
-    } else {
-      chrome.action.setBadgeText({ tabId, text: "" });
-      chrome.action.setTitle({ tabId, title: "TrustModel Safety Check — No score for this site" });
-    }
+    fetchSiteScore(tab.url, (data) => {
+      if (data) {
+        chrome.action.setBadgeText({ tabId, text: String(data.score) });
+        chrome.action.setBadgeBackgroundColor({ tabId, color: getBadgeColor(data.score) });
+        chrome.action.setTitle({ tabId, title: `TrustScore: ${data.score}/10 — ${data.tier}` });
+      } else {
+        chrome.action.setBadgeText({ tabId, text: "" });
+        chrome.action.setTitle({ tabId, title: "TrustModel Safety Check — No score yet for this site" });
+      }
+    });
   }
 });
 
@@ -145,23 +198,95 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
   try {
     const tab = await chrome.tabs.get(activeInfo.tabId);
     if (tab.url) {
-      const data = lookupDomain(tab.url);
-      if (data) {
-        chrome.action.setBadgeText({ tabId: tab.id, text: data.score.toString() });
-        chrome.action.setBadgeBackgroundColor({ tabId: tab.id, color: getBadgeColor(data.score) });
-      } else {
-        chrome.action.setBadgeText({ tabId: tab.id, text: "" });
-      }
+      fetchSiteScore(tab.url, (data) => {
+        if (data) {
+          chrome.action.setBadgeText({ tabId: tab.id, text: String(data.score) });
+          chrome.action.setBadgeBackgroundColor({ tabId: tab.id, color: getBadgeColor(data.score) });
+        } else {
+          chrome.action.setBadgeText({ tabId: tab.id, text: "" });
+        }
+      });
     }
   } catch {}
 });
+
+// ── Shadow AI: observe outbound traffic to the curated AI endpoints only ──
+// (No request bodies are read; detection is metadata only — see ai-detect.js.)
+chrome.webRequest.onBeforeRequest.addListener(
+  (details) => {
+    recordDetection(details.url, details.initiator, details.documentUrl);
+  },
+  { urls: AI_MATCH_PATTERNS },
+  []
+);
 
 // ── Message handler for popup ──
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "getScore") {
-    const data = lookupDomain(request.url);
-    sendResponse(data);
+    fetchSiteScore(request.url, sendResponse);
+    return true; // async
+  }
+  // End-user "rate/verify this site" request → backend emails us + the site's
+  // own support inbox (TRUS-2549). Replaces the mailto flow.
+  if (request.action === "rateRequest") {
+    fetch(`${TM_API_BASE}/api/v1/public/rate-request/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        domain: request.domain,
+        requester_email: request.email,
+        kind: request.kind || "rate",
+        message: request.message || "",
+      }),
+    })
+      .then((r) => sendResponse({ ok: r.ok }))
+      .catch(() => sendResponse({ ok: false }));
+    return true; // async
+  }
+  if (request.action === "getShadowAI") {
+    getShadowAI(sendResponse);
+    return true; // async response
+  }
+  if (request.action === "clearShadowAI") {
+    clearShadowAI(sendResponse);
+    return true; // async response
+  }
+  // Reliable per-page Shadow-AI detection from the content script (SW-lifecycle
+  // independent). recordDetection ignores non-AI hosts.
+  if (request.action === "recordPageVisit") {
+    const src = (sender && sender.tab && sender.tab.url) || request.url;
+    recordDetection(request.url, src, request.url);
+    sendResponse({ ok: true });
+    return true;
+  }
+  // ── Workspace enrollment (TRUS-2535) ──
+  if (request.action === "getEnrollment") {
+    getEnrollment((enr) => sendResponse(enr));
+    return true;
+  }
+  if (request.action === "connectWorkspace") {
+    connectWithInvite(request.code, request.apiBase, sendResponse);
+    return true;
+  }
+  if (request.action === "disconnectWorkspace") {
+    disconnect(sendResponse);
+    return true;
+  }
+  if (request.action === "reportNow") {
+    transmitNow(sendResponse);
+    return true;
   }
   return true;
+});
+
+// ── Enrollment lifecycle: adopt managed config, then report on a schedule ──
+function tmBootstrapReporting() {
+  applyManagedConfig(() => {});
+  chrome.alarms.create("tm-report", { periodInMinutes: 15 });
+}
+chrome.runtime.onInstalled.addListener(tmBootstrapReporting);
+chrome.runtime.onStartup.addListener(tmBootstrapReporting);
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === "tm-report") transmitNow(() => {});
 });
