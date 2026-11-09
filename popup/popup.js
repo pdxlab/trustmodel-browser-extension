@@ -12,7 +12,7 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       try { host = new URL(tab.url).hostname.replace("www.", ""); } catch {}
       showNoScore(
         `No TrustScore yet for this site.<br><br>` +
-        `It hasn't been assessed. You can ask TrustModel to score it — or verify it if it's yours.`,
+        `It hasn't been assessed. You can ask TrustModel to score it &mdash; or verify it if it's yours.`,
         host
       );
       return;
@@ -26,13 +26,13 @@ function showNoScore(msg, host) {
   if (host) {
     flag = `
       <div class="verify" style="border-top:none">
-        <a class="vbtn vsecondary" href="https://trustmodel.ai/get-verified?domain=${encodeURIComponent(host)}&src=ext" target="_blank">This is my site — Get Verified</a>
+        <a class="vbtn vsecondary" href="https://trustmodel.ai/get-verified?domain=${encodeURIComponent(host)}&src=ext" target="_blank">This is my site &mdash; Get Verified</a>
         ${rateFormHtml(host)}
       </div>`;
   }
   document.getElementById("content").innerHTML = `
     <div class="no-score">
-      <div class="icon">🔍</div>
+      <div class="icon">&#128269;</div>
       <p>${msg}</p>
     </div>${flag}
   `;
@@ -43,7 +43,7 @@ function showNoScore(msg, host) {
 // site's own support inbox AND to TrustModel, so the company hears the demand.
 function rateFormHtml(host) {
   return `
-    <div class="vhint" style="margin-bottom:6px;">Ask the owner to get verified — your request goes to them and to TrustModel.</div>
+    <div class="vhint" style="margin-bottom:6px;">Ask the owner to get verified &mdash; your request goes to them and to TrustModel.</div>
     <div class="ws-row" style="margin-top:0;">
       <input class="ws-input" id="rate-email" type="email" placeholder="you@email.com" />
       <button class="ws-btn" id="rate-send">Send</button>
@@ -68,7 +68,7 @@ function wireRateForm(host) {
       btn.textContent = "Send";
       btn.disabled = false;
       msg.style.color = resp && resp.ok ? "#15803d" : "#dc2626";
-      msg.textContent = resp && resp.ok ? "Request sent — thank you." : "Couldn't send. Please try again.";
+      msg.textContent = resp && resp.ok ? "Request sent. Thank you." : "Couldn't send. Please try again.";
     });
   });
 }
@@ -88,7 +88,7 @@ function buildVerify(name, host, score, verified) {
   return `
     <div class="verify">
       <div class="vtitle">Make this official</div>
-      <a class="vbtn vprimary" href="${verifyUrl}" target="_blank">This is my site — Get Verified</a>
+      <a class="vbtn vprimary" href="${verifyUrl}" target="_blank">This is my site &mdash; Get Verified</a>
       ${rateFormHtml(host)}
     </div>`;
 }
@@ -123,7 +123,7 @@ function showScore(data, url) {
   if (data.score < 6.0) {
     ctaHtml = `
       <div class="cta-low">
-        <p><strong>${data.name}</strong> scored <strong>${data.score}/10</strong> — below the "Generally Safe" threshold of 6.0. See the verification options below.</p>
+        <p><strong>${data.name}</strong> scored <strong>${data.score}/10</strong> &mdash; below the "Generally Safe" threshold of 6.0. See the verification options below.</p>
       </div>
     `;
   }
@@ -140,7 +140,7 @@ function showScore(data, url) {
       <div style="font-size: 10px; color: #94a3b8; margin: 2px 0 6px;">${hostname} · ${String(data.type || "site").toUpperCase()}</div>
       <span class="tier-badge" style="background: ${tierBg}; color: ${tierText};">${data.tier}</span>${data.verified ? `<span class="prelim-badge" style="background:#dcfce7;color:#15803d;">✓ Verified</span>` : `<span class="prelim-badge">Preliminary</span>`}
     </div>
-    ${data.verified ? "" : `<div class="disclaimer"><strong>Preliminary score.</strong> An outside-in estimate from public signals (privacy policy, trust center, security, public AI use) — not a verified TrustModel evaluation. It can change once ${data.name} completes verification.</div>`}
+    ${data.verified ? "" : `<div class="disclaimer"><strong>Preliminary score.</strong> An outside-in estimate from public signals (privacy policy, trust center, security, public AI use) &mdash; not a verified TrustModel evaluation. It can change once ${data.name} completes verification.</div>`}
     ${risksHtml}
     ${posHtml}
     <div class="cta">
@@ -239,7 +239,7 @@ function renderWorkspace(enr) {
 
   el.innerHTML =
     `<h3>Workspace</h3>` +
-    `<div class="ws-note">Invited by your employer? Paste the code from your invite email to connect — ` +
+    `<div class="ws-note">Invited by your employer? Paste the code from your invite email to connect &mdash; ` +
     `your AI usage is then shared with your organization. Nothing is sent until you connect.</div>` +
     `<div class="ws-row">` +
       `<input class="ws-input" id="ws-code" placeholder="Invite code" />` +
