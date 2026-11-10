@@ -153,7 +153,7 @@ function fetchSiteScore(url, cb) {
   chrome.storage.local.get([key], (res) => {
     const cached = res[key];
     if (cached && Date.now() - cached.at < SCORE_TTL_MS) { cb(cached.data); return; }
-    fetch(`${TM_API_BASE}/api/v1/public/site-score/${encodeURIComponent(host)}/`)
+    fetch(`${TM_API_BASE}/v1/public/site-score/${encodeURIComponent(host)}/`)
       .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
       .then((j) => {
         let data;
@@ -230,7 +230,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   // End-user "rate/verify this site" request → backend emails us + the site's
   // own support inbox (TRUS-2549). Replaces the mailto flow.
   if (request.action === "rateRequest") {
-    fetch(`${TM_API_BASE}/api/v1/public/rate-request/`, {
+    fetch(`${TM_API_BASE}/v1/public/rate-request/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
