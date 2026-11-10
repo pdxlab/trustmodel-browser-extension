@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "TrustModel.ai Safety Checks",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "description": "TrustScores for the AI you use, plus Shadow-AI detection — see which external AI platforms your browser talks to.",
   "permissions": ["activeTab", "storage", "webRequest", "alarms"],
   "host_permissions": [
