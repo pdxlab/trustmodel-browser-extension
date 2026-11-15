@@ -13,19 +13,18 @@
   chrome.runtime.sendMessage({ action: 'getScore', url: window.location.href }, (data) => {
     if (!data || !data.score) return;
 
-    // ── Color palette by score tier ──────────────────────────────────────────
-    const scoreNum = typeof data.score === 'number' ? data.score : parseInt(data.score, 10);
-    // Legacy scores were 0-10; new API returns 0-100.
-    const score100 = scoreNum > 10 ? scoreNum : scoreNum * 10;
-    const grade    = score100 >= 90 ? 'A' : score100 >= 80 ? 'B' : score100 >= 65 ? 'C' : score100 >= 50 ? 'D' : 'F';
+    // ── Score is 0-10 (same scale as the popup and static DB) ───────────────
+    // fetchSiteScore in background.js always returns score in 0-10.
+    // Never re-scale here — that's what caused the mismatch.
+    const scoreNum = typeof data.score === 'number' ? data.score : parseFloat(data.score) || 0;
 
-    const palette = score100 >= 80
-      ? { ring: '#22c55e', bg: '#f0fdf4', text: '#14532d', sub: '#16a34a' }   // green — A/B
-      : score100 >= 65
-      ? { ring: '#f59e0b', bg: '#fffbeb', text: '#78350f', sub: '#d97706' }   // amber — C
-      : score100 >= 50
-      ? { ring: '#f97316', bg: '#fff7ed', text: '#7c2d12', sub: '#ea580c' }   // orange — D
-      : { ring: '#ef4444', bg: '#fef2f2', text: '#7f1d1d', sub: '#dc2626' };  // red — F
+    const palette = scoreNum >= 8.0
+      ? { ring: '#22c55e', bg: '#f0fdf4', text: '#14532d', sub: '#16a34a' }   // green
+      : scoreNum >= 6.0
+      ? { ring: '#a3e635', bg: '#f7fee7', text: '#3f6212', sub: '#65a30d' }   // lime
+      : scoreNum >= 4.0
+      ? { ring: '#f59e0b', bg: '#fffbeb', text: '#78350f', sub: '#d97706' }   // amber
+      : { ring: '#ef4444', bg: '#fef2f2', text: '#7f1d1d', sub: '#dc2626' };  // red
 
     // ── TrustModel brand icon (inline SVG — no extra file request) ───────────
     const TM_ICON = `<svg width="22" height="22" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
@@ -55,9 +54,9 @@
     wrap.innerHTML = `
       ${TM_ICON}
       <div style="display:flex;flex-direction:column;gap:1px;min-width:0;">
-        <div style="display:flex;align-items:baseline;gap:3px;">
-          <span style="font-size:15px;font-weight:800;color:${palette.text};line-height:1;">${score100}</span>
-          <span style="font-size:9px;font-weight:700;color:${palette.sub};line-height:1;">/100 ${grade}</span>
+        <div style="display:flex;align-items:baseline;gap:2px;">
+          <span style="font-size:15px;font-weight:800;color:${palette.text};line-height:1;">${scoreNum}</span>
+          <span style="font-size:9px;font-weight:700;color:${palette.sub};line-height:1;">/10</span>
         </div>
         <div style="font-size:9px;color:${palette.sub};line-height:1.2;white-space:nowrap;">${data.tier || 'TrustScore'}</div>
       </div>
