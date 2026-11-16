@@ -137,43 +137,74 @@ const TM_API_BASE = "https://api.trustmodel.ai";
 const SCORE_TTL_MS = 6 * 60 * 60 * 1000;
 
 function gradeTier(grade, verified) {
-  if (verified) return "Verified";
-  if (grade === "A") return "Highly Trusted";
-  if (grade === "B") return "Generally Safe";
-  if (grade === "C") return "Use With Caution";
-  if (grade) return "High Risk";
+  // Maps API letter grade to the canonical tier labels published on trustmodel.ai/agentcert
+  if (verified)      return "Verified";
+  if (grade === "A") return "Exemplary";        // 90-100
+  if (grade === "B") return "Trustworthy";      // 75-89
+  if (grade === "C") return "Needs Attention";  // 65-74
+  if (grade === "D") return "Use With Caution"; // 50-64
+  if (grade === "F") return "High Risk";        // <50
   return "Preliminary";
 }
 
 function fetchSiteScore(url, cb) {
+  // Single source of truth: the same /v1/public/site-score/ endpoint used by
+  // the supply-chain console and the Chrome extension preliminary scanner.
+  // All three surfaces (toolbar badge, bottom-right badge, popup) call this
+  // function, so they always return the same number from the same source.
+  //
+  // Cache strategy:
+  //   - API-sourced entries: cached for SCORE_TTL_MS (6h) — identical to what
+  //     the supply-chain console shows for the same domain.
+  //   - Static-DB fallback: used ONLY when the API is unreachable AND no
+  //     API-sourced cache entry exists. Never cached, so the next online
+  //     request always wins with the live score.
+
   let host;
   try { host = new URL(url).hostname.replace(/^www\./, ""); } catch { cb(null); return; }
-  if (!host || /(^|\.)trustmodel\.ai$/.test(host)) { cb(lookupDomain(url)); return; }
+  if (!host || /(^|\.)trustmodel\.ai$/.test(host)) { cb(null); return; }
+
   const key = "score:" + host;
   chrome.storage.local.get([key], (res) => {
     const cached = res[key];
-    if (cached && Date.now() - cached.at < SCORE_TTL_MS) { cb(cached.data); return; }
-    fetch(`${TM_API_BASE}/v1/public/site-score/${encodeURIComponent(host)}/`)
+    // Only serve cache if it came from the live API (source === "api")
+    // and hasn't expired. Static-DB entries are never cached, so they
+    // never block a fresh API fetch.
+    if (cached && cached.source === "api" && Date.now() - cached.at < SCORE_TTL_MS) {
+      cb(cached.data);
+      return;
+    }
+
+    fetch(`${TM_API_BASE}/v1/public/site-score/${encodeURIComponent(host)}/`, {
+      signal: AbortSignal.timeout ? AbortSignal.timeout(10000) : undefined,
+    })
       .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
       .then((j) => {
         let data;
         if (j && j.assessed && j.trust_score != null) {
           const verified = j.score_tier === "verified" || j.score_tier === "monitored";
           data = {
-            name: j.name || host,
-            score: Math.round(Number(j.trust_score)),       // 0-100 canonical scale
-            tier: gradeTier(j.grade, verified),
-            type: "site",
+            name:        j.name || host,
+            score:       Math.round(Number(j.trust_score)), // 0-100 — supply-chain canonical
+            grade:       j.grade || "",
+            tier:        gradeTier(j.grade, verified),
+            type:        "site",
             verified,
             preliminary: !verified,
           };
+          // Cache API result — this is the shared truth across all three surfaces
+          chrome.storage.local.set({ [key]: { at: Date.now(), source: "api", data } });
         } else {
-          data = lookupDomain(url); // unreachable / not assessed → static or null
+          // Site is reachable but unassessed — no score to show
+          data = null;
         }
-        chrome.storage.local.set({ [key]: { at: Date.now(), data } });
         cb(data);
       })
-      .catch(() => cb(lookupDomain(url)));
+      .catch(() => {
+        // API unreachable (offline / timeout) — fall back to static DB without
+        // caching, so the next online request always gets the live score
+        cb(lookupDomain(url));
+      });
   });
 }
 
@@ -285,7 +316,17 @@ function tmBootstrapReporting() {
   applyManagedConfig(() => {});
   chrome.alarms.create("tm-report", { periodInMinutes: 15 });
 }
-chrome.runtime.onInstalled.addListener(tmBootstrapReporting);
+chrome.runtime.onInstalled.addListener((details) => {
+  // On update: flush the score cache so any stale 0-10 entries from prior
+  // versions are replaced by fresh 0-100 scores from the live API.
+  if (details.reason === "update") {
+    chrome.storage.local.get(null, (all) => {
+      const toRemove = Object.keys(all).filter(k => k.startsWith("score:"));
+      if (toRemove.length) chrome.storage.local.remove(toRemove);
+    });
+  }
+  tmBootstrapReporting();
+});
 chrome.runtime.onStartup.addListener(tmBootstrapReporting);
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === "tm-report") transmitNow(() => {});
