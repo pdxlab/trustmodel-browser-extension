@@ -88,15 +88,22 @@
       setTimeout(() => wrap.remove(), 300);
     });
 
-    // Click body → open TrustModel page for this site type
+    // Click badge → open the extension popup (same as clicking the toolbar icon).
+    // Uses chrome.action.openPopup() via a background message (Chrome 127+, MV3).
+    // If that fails (e.g. older Chrome), falls back to the relevant rankings page.
     wrap.addEventListener('click', () => {
-      const urls = {
-        cots:   'https://trustmodel.ai/benchmark',
-        model:  'https://trustmodel.ai/leaderboard',
-        mcp:    'https://trustmodel.ai/mcp-servers',
-        chrome: 'https://trustmodel.ai/chrome-extensions',
-      };
-      window.open(urls[data.type] || 'https://trustmodel.ai/leaderboard', '_blank');
+      chrome.runtime.sendMessage({ action: 'openPopup' }, (resp) => {
+        if (chrome.runtime.lastError || !resp || !resp.ok) {
+          // Fallback: open the relevant TrustModel rankings page
+          const urls = {
+            cots:   'https://trustmodel.ai/benchmark',
+            model:  'https://trustmodel.ai/leaderboard',
+            mcp:    'https://trustmodel.ai/mcp-servers',
+            chrome: 'https://trustmodel.ai/chrome-extensions',
+          };
+          window.open(urls[data.type] || 'https://trustmodel.ai/leaderboard', '_blank');
+        }
+      });
     });
 
     // Auto-fade after 10s; restore on hover

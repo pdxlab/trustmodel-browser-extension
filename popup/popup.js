@@ -1,4 +1,7 @@
-// Get current tab and look up score
+// Get current tab and look up score.
+// MV3 service workers can be killed between requests — if the background
+// takes too long to wake and respond, the popup shows "Loading..." forever.
+// A 6s timeout prevents that; the user can click the icon again to retry.
 chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
   const tab = tabs[0];
   if (!tab || !tab.url) {
@@ -6,7 +9,28 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     return;
   }
 
+  let responded = false;
+  const timer = setTimeout(() => {
+    if (!responded) {
+      responded = true;
+      let host = "";
+      try { host = new URL(tab.url).hostname.replace("www.", ""); } catch {}
+      showNoScore(
+        "Could not load score &mdash; the background service took too long to respond. " +
+        "Click the extension icon again to retry.",
+        host
+      );
+    }
+  }, 6000);
+
+  // Keep the service worker alive while the popup is open.
+  const keepAlive = setInterval(() => chrome.runtime.sendMessage({ action: "ping" }), 20000);
+  window.addEventListener("unload", () => clearInterval(keepAlive));
+
   chrome.runtime.sendMessage({ action: "getScore", url: tab.url }, (data) => {
+    clearTimeout(timer);
+    if (responded) return; // timeout already fired
+    responded = true;
     if (!data) {
       let host = "";
       try { host = new URL(tab.url).hostname.replace("www.", ""); } catch {}

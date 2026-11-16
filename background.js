@@ -285,6 +285,24 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
   // Reliable per-page Shadow-AI detection from the content script (SW-lifecycle
   // independent). recordDetection ignores non-AI hosts.
+  // Open the action popup programmatically (MV3, Chrome 127+).
+  // Called when the user clicks the bottom-right badge — same result as
+  // clicking the toolbar icon.
+  if (request.action === "openPopup") {
+    if (chrome.action.openPopup) {
+      chrome.action.openPopup()
+        .then(() => sendResponse({ ok: true }))
+        .catch(() => sendResponse({ ok: false }));
+    } else {
+      sendResponse({ ok: false }); // Chrome <127 fallback handled in content.js
+    }
+    return true;
+  }
+  // Keep-alive ping from the popup so the service worker stays alive.
+  if (request.action === "ping") {
+    sendResponse({ ok: true });
+    return true;
+  }
   if (request.action === "recordPageVisit") {
     const src = (sender && sender.tab && sender.tab.url) || request.url;
     recordDetection(request.url, src, request.url);
