@@ -140,7 +140,7 @@ function showScore(data, url) {
       <div style="font-size: 10px; color: #94a3b8; margin: 2px 0 6px;">${hostname} · ${String(data.type || "site").toUpperCase()}</div>
       <span class="tier-badge" style="background: ${tierBg}; color: ${tierText};">${data.tier}</span>${data.verified ? `<span class="prelim-badge" style="background:#dcfce7;color:#15803d;">✓ Verified</span>` : `<span class="prelim-badge">Preliminary</span>`}
     </div>
-    ${data.verified ? "" : `<div class="disclaimer"><strong>Preliminary score.</strong> An outside-in estimate from public signals (privacy policy, trust center, security, public AI use) &mdash; not a verified TrustModel evaluation. It can change once ${data.name} completes verification.</div>`}
+    ${data.verified ? "" : `<div class="disclaimer"><strong>Preliminary score.</strong> An outside-in estimate from public signals (privacy policy, trust center, security, public AI use) &mdash; not a verified TrustModel evaluation. It can change once ${data.name} completes verification. <a href="https://trustmodel.ai/agentcert" target="_blank" style="color:#0891b2;font-weight:600;">How we score 0–100 →</a></div>`}
     ${risksHtml}
     ${posHtml}
     <div class="cta">
