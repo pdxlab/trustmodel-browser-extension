@@ -18,13 +18,15 @@
     // Never re-scale here — that's what caused the mismatch.
     const scoreNum = typeof data.score === 'number' ? data.score : parseFloat(data.score) || 0;
 
-    const palette = scoreNum >= 8.0
-      ? { ring: '#22c55e', bg: '#f0fdf4', text: '#14532d', sub: '#16a34a' }   // green
-      : scoreNum >= 6.0
-      ? { ring: '#a3e635', bg: '#f7fee7', text: '#3f6212', sub: '#65a30d' }   // lime
-      : scoreNum >= 4.0
-      ? { ring: '#f59e0b', bg: '#fffbeb', text: '#78350f', sub: '#d97706' }   // amber
-      : { ring: '#ef4444', bg: '#fef2f2', text: '#7f1d1d', sub: '#dc2626' };  // red
+    const palette = scoreNum >= 90
+      ? { ring: '#22c55e', bg: '#f0fdf4', text: '#14532d', sub: '#16a34a' }   // green  — Exemplary 90+
+      : scoreNum >= 75
+      ? { ring: '#3b82f6', bg: '#eff6ff', text: '#1e3a8a', sub: '#2563eb' }   // blue   — Trustworthy 75-89
+      : scoreNum >= 65
+      ? { ring: '#a3e635', bg: '#f7fee7', text: '#3f6212', sub: '#65a30d' }   // lime   — Needs attention 65-74
+      : scoreNum >= 50
+      ? { ring: '#f59e0b', bg: '#fffbeb', text: '#78350f', sub: '#d97706' }   // amber  — Caution 50-64
+      : { ring: '#ef4444', bg: '#fef2f2', text: '#7f1d1d', sub: '#dc2626' };  // red    — High Risk <50
 
     // ── TrustModel brand icon (inline SVG — no extra file request) ───────────
     const TM_ICON = `<svg width="22" height="22" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
@@ -56,7 +58,7 @@
       <div style="display:flex;flex-direction:column;gap:1px;min-width:0;">
         <div style="display:flex;align-items:baseline;gap:2px;">
           <span style="font-size:15px;font-weight:800;color:${palette.text};line-height:1;">${scoreNum}</span>
-          <span style="font-size:9px;font-weight:700;color:${palette.sub};line-height:1;">/10</span>
+          <span style="font-size:9px;font-weight:700;color:${palette.sub};line-height:1;">/100</span>
         </div>
         <div style="font-size:9px;color:${palette.sub};line-height:1.2;white-space:nowrap;">${data.tier || 'TrustScore'}</div>
       </div>

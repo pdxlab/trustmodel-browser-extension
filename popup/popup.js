@@ -94,10 +94,10 @@ function buildVerify(name, host, score, verified) {
 }
 
 function showScore(data, url) {
-  const color = data.score >= 8 ? "#22c55e" : data.score >= 6 ? "#a3e635" : data.score >= 4 ? "#f59e0b" : "#f97316";
-  const textColor = data.score >= 6 ? "#064e3b" : data.score >= 4 ? "#7c2d12" : "#7f1d1d";
-  const tierBg = data.score >= 8 ? "#dcfce7" : data.score >= 6 ? "#ecfccb" : data.score >= 4 ? "#fef3c7" : "#fee2e2";
-  const tierText = data.score >= 8 ? "#15803d" : data.score >= 6 ? "#3f6212" : data.score >= 4 ? "#92400e" : "#991b1b";
+  const color = data.score >= 90 ? "#22c55e" : data.score >= 75 ? "#3b82f6" : data.score >= 65 ? "#a3e635" : data.score >= 50 ? "#f59e0b" : "#f97316";
+  const textColor = data.score >= 75 ? "#064e3b" : data.score >= 50 ? "#7c2d12" : "#7f1d1d";
+  const tierBg = data.score >= 90 ? "#dcfce7" : data.score >= 75 ? "#dbeafe" : data.score >= 65 ? "#ecfccb" : data.score >= 50 ? "#fef3c7" : "#fee2e2";
+  const tierText = data.score >= 90 ? "#15803d" : data.score >= 75 ? "#1e40af" : data.score >= 65 ? "#3f6212" : data.score >= 50 ? "#92400e" : "#991b1b";
 
   const typeUrls = {
     cots: "https://trustmodel.ai/benchmark",
@@ -120,10 +120,10 @@ function showScore(data, url) {
   }
 
   let ctaHtml = "";
-  if (data.score < 6.0) {
+  if (data.score < 65) {
     ctaHtml = `
       <div class="cta-low">
-        <p><strong>${data.name}</strong> scored <strong>${data.score}/10</strong> &mdash; below the "Generally Safe" threshold of 6.0. See the verification options below.</p>
+        <p><strong>${data.name}</strong> scored <strong>${data.score}/100</strong> &mdash; below the "Generally Safe" threshold of 65. See the verification options below.</p>
       </div>
     `;
   }
@@ -133,7 +133,7 @@ function showScore(data, url) {
       <div class="score-circle" style="background: ${color}20; border: 3px solid ${color};">
         <div>
           <div class="num" style="color: ${textColor};">${data.score}</div>
-          <div class="out-of" style="color: ${textColor};">/10</div>
+          <div class="out-of" style="color: ${textColor};">/100</div>
         </div>
       </div>
       <div class="system-name">${data.name}</div>
