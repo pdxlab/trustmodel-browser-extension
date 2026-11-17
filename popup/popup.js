@@ -2,8 +2,8 @@
 //
 // MV3 service workers can be killed between requests, so the popup may open
 // while the SW is restarting — sendMessage fires but the response never arrives.
-// Strategy: read from storage first (the SW writes "popup:<host>" every time it
-// fetches a score), show that immediately, then refresh via sendMessage so the
+// Strategy: read from storage first using the existing score:<host> cache that
+// background.js writes on every successful fetch. This key is populated even
 // user always sees something rather than a blank "Loading...".
 chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
   const tab = tabs[0];
@@ -23,9 +23,12 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
 
   // 1. Read cached score from storage immediately (no SW round-trip needed).
   if (host) {
-    chrome.storage.local.get(["popup:" + host], (res) => {
-      const cached = res["popup:" + host];
-      if (cached && cached.data && !shownFromCache) {
+    chrome.storage.local.get(["score:" + host], (res) => {
+      const cached = res["score:" + host] && res["score:" + host].data
+        ? res["score:" + host]
+        : null;
+      const hit = cached && cached.data;
+      if (hit && !shownFromCache) {
         shownFromCache = true;
         showScore(cached.data, tab.url);
       }

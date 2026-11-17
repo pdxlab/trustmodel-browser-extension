@@ -172,7 +172,7 @@ function fetchSiteScore(url, cb) {
     // never block a fresh API fetch.
     if (cached && cached.source === "api" && Date.now() - cached.at < SCORE_TTL_MS) {
       cb(cached.data);
-      return;
+      return; // cache hit — popup.js reads score:<host> directly, no extra write needed
     }
 
     fetch(`${TM_API_BASE}/v1/public/site-score/${encodeURIComponent(host)}/`, {
@@ -193,11 +193,9 @@ function fetchSiteScore(url, cb) {
             preliminary: !verified,
           };
           // Cache API result — this is the shared truth across all three surfaces
+          // score:<host> is the single cache key — popup.js reads it directly
+          // from storage without a SW round-trip (MV3 blank popup fix).
           chrome.storage.local.set({ [key]: { at: Date.now(), source: "api", data } });
-          // Also write to a direct-read popup key so the popup can read the
-          // score from storage without going through the message bus when the
-          // service worker is restarting (MV3 blank popup fix).
-          if (data && host) chrome.storage.local.set({ ["popup:" + host]: { at: Date.now(), data } });
         } else {
           // Site is reachable but unassessed — no score to show
           data = null;
@@ -209,7 +207,9 @@ function fetchSiteScore(url, cb) {
         // caching the API source, so the next online request always gets the live score.
         const fallback = lookupDomain(url);
         if (fallback && host) {
-          chrome.storage.local.set({ ["popup:" + host]: { at: Date.now(), data: fallback } });
+          // Write to score:<host> so the popup can read it from storage if the
+          // SW is dead when the popup opens (MV3 blank popup fix).
+          chrome.storage.local.set({ [key]: { at: Date.now(), source: "static", data: fallback } });
         }
         cb(fallback);
       });
