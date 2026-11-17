@@ -13,6 +13,14 @@
   chrome.runtime.sendMessage({ action: 'getScore', url: window.location.href }, (data) => {
     if (!data || !data.score) return;
 
+    // Write to storage so popup.js can read it without any SW round-trip.
+    // This is the guaranteed path: content script always gets a response
+    // (the SW wakes for it), so this key is always set when a score is shown.
+    try {
+      const h = window.location.hostname.replace(/^www\./, '');
+      chrome.storage.local.set({ ['cs:' + h]: data });
+    } catch (_) {}
+
     // ── Score is 0-10 (same scale as the popup and static DB) ───────────────
     // fetchSiteScore in background.js always returns score in 0-10.
     // Never re-scale here — that's what caused the mismatch.

@@ -21,16 +21,21 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
 
   let shownFromCache = false;
 
-  // 1. Read cached score from storage immediately (no SW round-trip needed).
+  // 1. Read from storage — no SW round-trip needed.
+  //    Two keys to try (in priority order):
+  //    a) cs:<host> — written by the content script EVERY time it shows the badge.
+  //       This is the guaranteed source: the SW woke up for the content script,
+  //       so this key is always populated when a badge score is visible.
+  //    b) score:<host> — written by background.js on API fetches (older fallback).
   if (host) {
-    chrome.storage.local.get(["score:" + host], (res) => {
-      const cached = res["score:" + host] && res["score:" + host].data
-        ? res["score:" + host]
-        : null;
-      const hit = cached && cached.data;
-      if (hit && !shownFromCache) {
+    chrome.storage.local.get(["cs:" + host, "score:" + host], (res) => {
+      // Prefer content-script source (most recent), then background cache
+      const data =
+        res["cs:" + host] ||
+        (res["score:" + host] && res["score:" + host].data ? res["score:" + host].data : null);
+      if (data && !shownFromCache) {
         shownFromCache = true;
-        showScore(cached.data, tab.url);
+        showScore(data, tab.url);
       }
     });
   }
