@@ -1,10 +1,5 @@
-// Get current tab and show its TrustScore.
-//
-// MV3 service workers can be killed between requests, so the popup may open
-// while the SW is restarting — sendMessage fires but the response never arrives.
-// Strategy: read from storage first using the existing score:<host> cache that
-// background.js writes on every successful fetch. This key is populated even
-// user always sees something rather than a blank "Loading...".
+// Simple, direct approach: read cs:<host> (written by content script) first,
+// then fall back to sendMessage. No complex retry/timeout logic.
 chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
   const tab = tabs[0];
   if (!tab || !tab.url) {
@@ -15,55 +10,41 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
   let host = "";
   try { host = new URL(tab.url).hostname.replace(/^www\./, ""); } catch {}
 
-  // Keep the service worker alive while the popup is open.
-  const keepAlive = setInterval(() => chrome.runtime.sendMessage({ action: "ping" }).catch(() => {}), 20000);
-  window.addEventListener("unload", () => clearInterval(keepAlive));
-
-  let shownFromCache = false;
-
-  // 1. Read from storage — no SW round-trip needed.
-  //    Two keys to try (in priority order):
-  //    a) cs:<host> — written by the content script EVERY time it shows the badge.
-  //       This is the guaranteed source: the SW woke up for the content script,
-  //       so this key is always populated when a badge score is visible.
-  //    b) score:<host> — written by background.js on API fetches (older fallback).
-  if (host) {
+  // Try storage first (cs:<host> is written by content script on every page load,
+  // so it's always available when the badge shows a score — no SW needed).
+  const tryStorage = (cb) => {
+    if (!host) { cb(null); return; }
     chrome.storage.local.get(["cs:" + host, "score:" + host], (res) => {
-      // Prefer content-script source (most recent), then background cache
       const data =
         res["cs:" + host] ||
-        (res["score:" + host] && res["score:" + host].data ? res["score:" + host].data : null);
-      if (data && !shownFromCache) {
-        shownFromCache = true;
-        showScore(data, tab.url);
-      }
+        (res["score:" + host] && res["score:" + host].data
+          ? res["score:" + host].data : null);
+      cb(data || null);
     });
-  }
+  };
 
-  // 2. Also ask the SW for a fresh score (may update the display if newer).
-  //    Retry up to 3 times with 1.5s gaps if the SW is still waking up.
-  let attempts = 0;
-  function askSW() {
+  tryStorage((cached) => {
+    if (cached) {
+      showScore(cached, tab.url);
+      return; // already showing — also refresh via SW in background
+    }
+    // Nothing in storage yet — ask the SW (normal path for first-ever visit)
     chrome.runtime.sendMessage({ action: "getScore", url: tab.url }, (data) => {
       if (chrome.runtime.lastError || !data) {
-        // SW not ready yet — retry up to 3×
-        if (++attempts < 3) { setTimeout(askSW, 1500); return; }
-        // All retries exhausted — if we already showed a cached score, leave it.
-        if (!shownFromCache) {
-          showNoScore(
-            "Could not load TrustScore. Click the extension icon again to retry.",
-            host
-          );
-        }
+        // SW not ready — wait 2s and retry once
+        setTimeout(() => {
+          chrome.runtime.sendMessage({ action: "getScore", url: tab.url }, (d2) => {
+            if (d2) showScore(d2, tab.url);
+            else showNoScore(`No TrustScore yet for this site.<br><br>It hasn't been assessed. You can ask TrustModel to score it &mdash; or verify it if it's yours.`, host);
+          });
+        }, 2000);
         return;
       }
-      // Fresh data from SW — update the display.
-      shownFromCache = true;
       showScore(data, tab.url);
     });
-  }
-  askSW();
+  });
 });
+
 
 function showNoScore(msg, host) {
   let flag = "";

@@ -170,7 +170,7 @@ function fetchSiteScore(url, cb) {
     // Only serve cache if it came from the live API (source === "api")
     // and hasn't expired. Static-DB entries are never cached, so they
     // never block a fresh API fetch.
-    if (cached && cached.source === "api" && Date.now() - cached.at < SCORE_TTL_MS) {
+    if (cached && (cached.source === "api" || !cached.source) && Date.now() - cached.at < SCORE_TTL_MS) {
       cb(cached.data);
       return; // cache hit — popup.js reads score:<host> directly, no extra write needed
     }
