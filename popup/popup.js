@@ -1,7 +1,10 @@
-// Get current tab and look up score.
-// MV3 service workers can be killed between requests — if the background
-// takes too long to wake and respond, the popup shows "Loading..." forever.
-// A 6s timeout prevents that; the user can click the icon again to retry.
+// Get current tab and show its TrustScore.
+//
+// MV3 service workers can be killed between requests, so the popup may open
+// while the SW is restarting — sendMessage fires but the response never arrives.
+// Strategy: read from storage first (the SW writes "popup:<host>" every time it
+// fetches a score), show that immediately, then refresh via sendMessage so the
+// user always sees something rather than a blank "Loading...".
 chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
   const tab = tabs[0];
   if (!tab || !tab.url) {
@@ -9,40 +12,49 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     return;
   }
 
-  let responded = false;
-  const timer = setTimeout(() => {
-    if (!responded) {
-      responded = true;
-      let host = "";
-      try { host = new URL(tab.url).hostname.replace("www.", ""); } catch {}
-      showNoScore(
-        "Could not load score &mdash; the background service took too long to respond. " +
-        "Click the extension icon again to retry.",
-        host
-      );
-    }
-  }, 6000);
+  let host = "";
+  try { host = new URL(tab.url).hostname.replace(/^www\./, ""); } catch {}
 
   // Keep the service worker alive while the popup is open.
-  const keepAlive = setInterval(() => chrome.runtime.sendMessage({ action: "ping" }), 20000);
+  const keepAlive = setInterval(() => chrome.runtime.sendMessage({ action: "ping" }).catch(() => {}), 20000);
   window.addEventListener("unload", () => clearInterval(keepAlive));
 
-  chrome.runtime.sendMessage({ action: "getScore", url: tab.url }, (data) => {
-    clearTimeout(timer);
-    if (responded) return; // timeout already fired
-    responded = true;
-    if (!data) {
-      let host = "";
-      try { host = new URL(tab.url).hostname.replace("www.", ""); } catch {}
-      showNoScore(
-        `No TrustScore yet for this site.<br><br>` +
-        `It hasn't been assessed. You can ask TrustModel to score it &mdash; or verify it if it's yours.`,
-        host
-      );
-      return;
-    }
-    showScore(data, tab.url);
-  });
+  let shownFromCache = false;
+
+  // 1. Read cached score from storage immediately (no SW round-trip needed).
+  if (host) {
+    chrome.storage.local.get(["popup:" + host], (res) => {
+      const cached = res["popup:" + host];
+      if (cached && cached.data && !shownFromCache) {
+        shownFromCache = true;
+        showScore(cached.data, tab.url);
+      }
+    });
+  }
+
+  // 2. Also ask the SW for a fresh score (may update the display if newer).
+  //    Retry up to 3 times with 1.5s gaps if the SW is still waking up.
+  let attempts = 0;
+  function askSW() {
+    chrome.runtime.sendMessage({ action: "getScore", url: tab.url }, (data) => {
+      if (chrome.runtime.lastError || !data) {
+        // SW not ready yet — retry up to 3×
+        if (++attempts < 3) { setTimeout(askSW, 1500); return; }
+        // All retries exhausted — if we already showed a cached score, leave it.
+        if (!shownFromCache) {
+          showNoScore(
+            "Could not load TrustScore. Click the extension icon again to retry.",
+            host
+          );
+        }
+        return;
+      }
+      // Fresh data from SW — update the display.
+      shownFromCache = true;
+      showScore(data, tab.url);
+    });
+  }
+  askSW();
 });
 
 function showNoScore(msg, host) {

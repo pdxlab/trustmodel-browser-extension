@@ -194,6 +194,10 @@ function fetchSiteScore(url, cb) {
           };
           // Cache API result — this is the shared truth across all three surfaces
           chrome.storage.local.set({ [key]: { at: Date.now(), source: "api", data } });
+          // Also write to a direct-read popup key so the popup can read the
+          // score from storage without going through the message bus when the
+          // service worker is restarting (MV3 blank popup fix).
+          if (data && host) chrome.storage.local.set({ ["popup:" + host]: { at: Date.now(), data } });
         } else {
           // Site is reachable but unassessed — no score to show
           data = null;
@@ -202,8 +206,12 @@ function fetchSiteScore(url, cb) {
       })
       .catch(() => {
         // API unreachable (offline / timeout) — fall back to static DB without
-        // caching, so the next online request always gets the live score
-        cb(lookupDomain(url));
+        // caching the API source, so the next online request always gets the live score.
+        const fallback = lookupDomain(url);
+        if (fallback && host) {
+          chrome.storage.local.set({ ["popup:" + host]: { at: Date.now(), data: fallback } });
+        }
+        cb(fallback);
       });
   });
 }
