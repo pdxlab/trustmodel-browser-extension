@@ -14,15 +14,15 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       showScore(entry.data, entry.url || "");
       return;
     }
-    // Not cached yet — ask SW directly (first visit on this tab)
-    const url = tab.pendingUrl || "";
-    chrome.runtime.sendMessage({ action: "getScore", url }, (d) => {
-      if (chrome.runtime.lastError || !d) {
-        showNoScore("No TrustScore yet for this site.<br><br>It hasn't been assessed. You can ask TrustModel to score it &mdash; or verify it if it's yours.", "");
-        return;
-      }
-      showScore(d, url);
-    });
+    // No cached score yet — the content script hasn't run on this tab.
+    // This happens when the extension was just loaded/reloaded.
+    // Tell the user to reload the page so the content script runs and
+    // populates the score, then click again.
+    showNoScore(
+      "Reload this page once (⌘+R or F5) then click the icon again — " +
+      "the score will appear instantly.",
+      ""
+    );
   });
 });
 
