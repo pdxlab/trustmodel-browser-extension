@@ -265,8 +265,15 @@ chrome.webRequest.onBeforeRequest.addListener(
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "getScore") {
-    fetchSiteScore(request.url, sendResponse);
-    return true; // async
+    fetchSiteScore(request.url, (data) => {
+      // Write by tabId so popup can read it without needing tab.url.
+      // This fires at exactly the same moment as the badge — guaranteed.
+      if (data && sender && sender.tab && sender.tab.id) {
+        chrome.storage.local.set({ ["tab:" + sender.tab.id]: { data, url: request.url } });
+      }
+      sendResponse(data);
+    });
+    return true;
   }
   // End-user "rate/verify this site" request → backend emails us + the site's
   // own support inbox (TRUS-2549). Replaces the mailto flow.
