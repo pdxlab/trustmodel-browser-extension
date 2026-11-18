@@ -56,7 +56,7 @@
       'border-radius:28px',
       'box-shadow:0 4px 16px rgba(0,0,0,0.14)',
       'font-family:-apple-system,BlinkMacSystemFont,sans-serif',
-      'cursor:pointer',
+      'cursor:grab',
       'transition:transform .18s, box-shadow .18s, opacity .3s',
       'user-select:none',
     ].join(';');
@@ -77,10 +77,56 @@
       " title="Dismiss">&times;</button>
     `;
 
+    // Restore saved position (persists across pages)
+    chrome.storage.local.get(['tm-badge-pos'], (res) => {
+      const pos = res['tm-badge-pos'];
+      if (pos) {
+        wrap.style.bottom = '';
+        wrap.style.right  = '';
+        wrap.style.left   = pos.left + 'px';
+        wrap.style.top    = pos.top  + 'px';
+      }
+    });
+
     document.body.appendChild(wrap);
 
-    // Hover lift
+    // ── Drag to reposition ──────────────────────────────────────────────────
+    let dragging = false, dragOffX = 0, dragOffY = 0;
+
+    wrap.addEventListener('mousedown', (e) => {
+      if (e.target.id === 'tm-dismiss') return; // let dismiss button work
+      dragging = true;
+      const r = wrap.getBoundingClientRect();
+      dragOffX = e.clientX - r.left;
+      dragOffY = e.clientY - r.top;
+      wrap.style.transition = 'none';
+      wrap.style.cursor = 'grabbing';
+      e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!dragging) return;
+      const x = Math.max(0, Math.min(e.clientX - dragOffX, window.innerWidth  - wrap.offsetWidth));
+      const y = Math.max(0, Math.min(e.clientY - dragOffY, window.innerHeight - wrap.offsetHeight));
+      wrap.style.left   = x + 'px';
+      wrap.style.top    = y + 'px';
+      wrap.style.right  = '';
+      wrap.style.bottom = '';
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (!dragging) return;
+      dragging = false;
+      wrap.style.cursor = 'pointer';
+      wrap.style.transition = 'transform .18s, box-shadow .18s, opacity .3s';
+      // Persist position so it stays in place on the next page
+      const r = wrap.getBoundingClientRect();
+      chrome.storage.local.set({ 'tm-badge-pos': { left: r.left, top: r.top } });
+    });
+
+    // Hover lift (only when not dragging)
     wrap.addEventListener('mouseenter', () => {
+      if (dragging) return;
       wrap.style.transform = 'scale(1.04) translateY(-1px)';
       wrap.style.boxShadow = '0 8px 24px rgba(0,0,0,0.18)';
     });
