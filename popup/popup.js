@@ -1,46 +1,44 @@
-// Simple, direct approach: read cs:<host> (written by content script) first,
-// then fall back to sendMessage. No complex retry/timeout logic.
+// popup.js — simple and direct
+// With "tabs" permission, tab.url is always available.
+// Reads score from storage (written by content script on every page visit)
+// then falls back to SW message.
+
 chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-  const tab = tabs[0];
-  if (!tab || !tab.url) {
+  const tab = tabs && tabs[0];
+  const url = tab && tab.url;
+
+  if (!url) {
     showNoScore("Navigate to a website to see its TrustScore.");
     return;
   }
 
   let host = "";
-  try { host = new URL(tab.url).hostname.replace(/^www\./, ""); } catch {}
+  try { host = new URL(url).hostname.replace(/^www\./, ""); } catch {}
 
-  // Try storage first (cs:<host> is written by content script on every page load,
-  // so it's always available when the badge shows a score — no SW needed).
-  const tryStorage = (cb) => {
-    if (!host) { cb(null); return; }
-    chrome.storage.local.get(["cs:" + host, "score:" + host], (res) => {
-      const data =
-        res["cs:" + host] ||
-        (res["score:" + host] && res["score:" + host].data
-          ? res["score:" + host].data : null);
-      cb(data || null);
-    });
-  };
+  // Read cs:<host> from storage first — written by the content script whenever
+  // it shows the bottom-right badge. If the badge showed a score, this key exists.
+  chrome.storage.local.get(["cs:" + host, "score:" + host], (res) => {
+    const data = res["cs:" + host]
+      || (res["score:" + host] && res["score:" + host].data
+            ? res["score:" + host].data : null);
 
-  tryStorage((cached) => {
-    if (cached) {
-      showScore(cached, tab.url);
-      return; // already showing — also refresh via SW in background
+    if (data) {
+      showScore(data, url);
+      return;
     }
-    // Nothing in storage yet — ask the SW (normal path for first-ever visit)
-    chrome.runtime.sendMessage({ action: "getScore", url: tab.url }, (data) => {
-      if (chrome.runtime.lastError || !data) {
-        // SW not ready — wait 2s and retry once
-        setTimeout(() => {
-          chrome.runtime.sendMessage({ action: "getScore", url: tab.url }, (d2) => {
-            if (d2) showScore(d2, tab.url);
-            else showNoScore(`No TrustScore yet for this site.<br><br>It hasn't been assessed. You can ask TrustModel to score it &mdash; or verify it if it's yours.`, host);
-          });
-        }, 2000);
+
+    // No cached data — ask the SW directly
+    chrome.runtime.sendMessage({ action: "getScore", url }, (d) => {
+      if (chrome.runtime.lastError || !d) {
+        showNoScore(
+          "No TrustScore yet for this site.<br><br>" +
+          "It hasn't been assessed. You can ask TrustModel to score it " +
+          "&mdash; or verify it if it's yours.",
+          host
+        );
         return;
       }
-      showScore(data, tab.url);
+      showScore(d, url);
     });
   });
 });
