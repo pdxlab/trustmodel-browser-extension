@@ -224,7 +224,9 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
       if (data) {
         chrome.action.setBadgeText({ tabId, text: String(data.score) });
         chrome.action.setBadgeBackgroundColor({ tabId, color: getBadgeColor(data.score) });
-        chrome.action.setTitle({ tabId, title: `TrustScore: ${data.score}/10 — ${data.tier}` });
+        chrome.action.setTitle({ tabId, title: `TrustScore: ${data.score}/100 — ${data.tier}` });
+        // Store by tabId so popup can read it without needing the tabs permission
+        chrome.storage.local.set({ ["tab:" + tabId]: { data, url: tab.url } });
       } else {
         chrome.action.setBadgeText({ tabId, text: "" });
         chrome.action.setTitle({ tabId, title: "TrustModel Safety Check — No score yet for this site" });

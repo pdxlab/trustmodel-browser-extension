@@ -1,41 +1,24 @@
-// popup.js — simple and direct
-// With "tabs" permission, tab.url is always available.
-// Reads score from storage (written by content script on every page visit)
-// then falls back to SW message.
+// popup.js
+// Uses chrome.tabs.query with activeTab permission — tab.id is always available.
+// Reads score from tab:<id> storage (written by background when badge is set)
+// so no tabs permission needed to get tab.url.
 
 chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
   const tab = tabs && tabs[0];
-  const url = tab && tab.url;
+  if (!tab) { showNoScore("Navigate to a website to see its TrustScore."); return; }
 
-  if (!url) {
-    showNoScore("Navigate to a website to see its TrustScore.");
-    return;
-  }
-
-  let host = "";
-  try { host = new URL(url).hostname.replace(/^www\./, ""); } catch {}
-
-  // Read cs:<host> from storage first — written by the content script whenever
-  // it shows the bottom-right badge. If the badge showed a score, this key exists.
-  chrome.storage.local.get(["cs:" + host, "score:" + host], (res) => {
-    const data = res["cs:" + host]
-      || (res["score:" + host] && res["score:" + host].data
-            ? res["score:" + host].data : null);
-
-    if (data) {
-      showScore(data, url);
+  // Read by tabId — always works with activeTab, no tabs permission needed
+  chrome.storage.local.get(["tab:" + tab.id], (res) => {
+    const entry = res["tab:" + tab.id];
+    if (entry && entry.data) {
+      showScore(entry.data, entry.url || "");
       return;
     }
-
-    // No cached data — ask the SW directly
+    // Not cached yet — ask SW directly (first visit on this tab)
+    const url = tab.pendingUrl || "";
     chrome.runtime.sendMessage({ action: "getScore", url }, (d) => {
       if (chrome.runtime.lastError || !d) {
-        showNoScore(
-          "No TrustScore yet for this site.<br><br>" +
-          "It hasn't been assessed. You can ask TrustModel to score it " +
-          "&mdash; or verify it if it's yours.",
-          host
-        );
+        showNoScore("No TrustScore yet for this site.<br><br>It hasn't been assessed. You can ask TrustModel to score it &mdash; or verify it if it's yours.", "");
         return;
       }
       showScore(d, url);
