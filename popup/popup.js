@@ -126,10 +126,10 @@ function showScore(data, url) {
   }
 
   let ctaHtml = "";
-  if (data.score < 65)  // below "Needs Attention" threshold {
+  if (data.score < 65) {
     ctaHtml = `
       <div class="cta-low">
-        <p><strong>${data.name}</strong> scored <strong>${data.score}/100</strong> &mdash; below the "Needs Attention" threshold (65). See verification options below. See the verification options below.</p>
+        <p><strong>${data.name}</strong> scored <strong>${data.score}/100</strong> &mdash; below the "Needs Attention" threshold (65). See the verification options below.</p>
       </div>
     `;
   }
