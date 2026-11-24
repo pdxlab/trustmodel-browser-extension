@@ -15,7 +15,7 @@
  */
 
 const DEFAULT_API_BASE = "https://api.trustmodel.ai";
-const ENROLL_KEY = "tmEnroll"; // { ingestToken, apiBase, email, org }
+const ENROLL_KEY = "tmEnroll"; // { ingestToken, apiBase, email, org, orgName, needsReconnect }
 // The watermark: { [serviceId]: { hits, firstSeen } } — hits reported so far for
 // that inventory entry. Older versions stored a bare number.
 const SENT_KEY = "shadowAISent";
@@ -109,7 +109,13 @@ function connectWithInvite(inviteCode, apiBase, cb) {
     .then(async (r) => {
       if (!r.ok) throw new Error(r.status === 401 ? "Invalid or expired invite code." : `Connect failed (${r.status}).`);
       const d = await r.json();
-      const enr = { ingestToken: d.ingest_token, apiBase: base, email: d.email, org: d.organization_id };
+      const enr = {
+        ingestToken: d.ingest_token,
+        apiBase: base,
+        email: d.email,
+        org: d.organization_id,
+        orgName: d.organization_name || "", // shown instead of the UUID (TRUS-2622)
+      };
       saveEnrollment(enr, () => {
         cb && cb({ ok: true, enr });
         transmitNow(() => {}); // report whatever is already in the inventory

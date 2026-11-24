@@ -228,8 +228,10 @@ function renderWorkspace(enr) {
   }
 
   if (enr && enr.ingestToken) {
-    const org = enr.org || "your organization";
-    const who = enr.email ? ` as ${enr.email}` : "";
+    // The org's name rather than its UUID (TRUS-2622). Both come from the
+    // server and go into innerHTML, so they are escaped.
+    const org = escapeHtml(enr.orgName || enr.org || "your organization");
+    const who = enr.email ? ` as ${escapeHtml(enr.email)}` : "";
     el.innerHTML =
       `<h3>Workspace</h3>` +
       `<div class="ws-connected">✓ Reporting to <span class="org">${org}</span>${who}</div>` +
@@ -263,6 +265,12 @@ function renderWorkspace(enr) {
       "your AI usage is then shared with your organization. Nothing is sent until you connect.",
     );
   wireConnectForm();
+}
+
+function escapeHtml(text) {
+  return String(text).replace(/[&<>"']/g, (c) => (
+    { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
+  ));
 }
 
 function connectFormHtml(note) {
