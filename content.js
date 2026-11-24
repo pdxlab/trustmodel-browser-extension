@@ -93,9 +93,15 @@
     // ── Drag to reposition ──────────────────────────────────────────────────
     let dragging = false, dragOffX = 0, dragOffY = 0;
 
+    // A drag ends in a click; only a press that didn't move opens the popup
+    // (TRUS-2623). 3 px of slack so a shaky click still counts.
+    let downX = 0, downY = 0, moved = false;
     wrap.addEventListener('mousedown', (e) => {
       if (e.target.id === 'tm-dismiss') return; // let dismiss button work
       dragging = true;
+      downX = e.clientX;
+      downY = e.clientY;
+      moved = false;
       const r = wrap.getBoundingClientRect();
       dragOffX = e.clientX - r.left;
       dragOffY = e.clientY - r.top;
@@ -106,6 +112,7 @@
 
     document.addEventListener('mousemove', (e) => {
       if (!dragging) return;
+      if (Math.abs(e.clientX - downX) > 3 || Math.abs(e.clientY - downY) > 3) moved = true;
       const x = Math.max(0, Math.min(e.clientX - dragOffX, window.innerWidth  - wrap.offsetWidth));
       const y = Math.max(0, Math.min(e.clientY - dragOffY, window.innerHeight - wrap.offsetHeight));
       wrap.style.left   = x + 'px';
@@ -146,6 +153,7 @@
     // Uses chrome.action.openPopup() via a background message (Chrome 127+, MV3).
     // If that fails (e.g. older Chrome), falls back to the relevant rankings page.
     wrap.addEventListener('click', () => {
+      if (moved) { moved = false; return; } // the end of a drag, not a click
       chrome.runtime.sendMessage({ action: 'openPopup' }, (resp) => {
         if (chrome.runtime.lastError || !resp || !resp.ok) {
           // Fallback: open the relevant TrustModel rankings page

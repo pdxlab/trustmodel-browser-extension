@@ -12,12 +12,15 @@ importScripts("enroll.js");
 
 // ── Badge color logic ──
 
+// The same bands and colours as the popup and the floating badge, which follow
+// the published tiers (A 90+, B 75-89, C 65-74, D 50-64, F <50). The toolbar
+// used 80/65/50/30, so a 78 was lime here and blue elsewhere (TRUS-2623).
 function getBadgeColor(score) {
-  if (score >= 80) return "#22c55e"; // green
-  if (score >= 65) return "#a3e635"; // lime
-  if (score >= 50) return "#f59e0b"; // amber
-  if (score >= 30) return "#f97316"; // orange
-  return "#ef4444"; // red
+  if (score >= 90) return "#22c55e"; // green  — Exemplary
+  if (score >= 75) return "#3b82f6"; // blue   — Trustworthy
+  if (score >= 65) return "#a3e635"; // lime   — Needs Attention
+  if (score >= 50) return "#f59e0b"; // amber  — Use With Caution
+  return "#ef4444"; // red — High Risk
 }
 
 function getBadgeText(score) {
@@ -131,6 +134,18 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 
 // ── Update badge when tab changes ──
 
+function paintBadge(tabId, data) {
+  if (!tabId) return;
+  if (data) {
+    chrome.action.setBadgeText({ tabId, text: String(data.score) });
+    chrome.action.setBadgeBackgroundColor({ tabId, color: getBadgeColor(data.score) });
+    chrome.action.setTitle({ tabId, title: `TrustScore: ${data.score}/100 — ${data.tier}` });
+  } else {
+    chrome.action.setBadgeText({ tabId, text: "" });
+    chrome.action.setTitle({ tabId, title: "TrustModel Safety Check — No score yet for this site" });
+  }
+}
+
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.status === "loading") {
     tabNav[tabId] = (tabNav[tabId] || 0) + 1;
@@ -140,14 +155,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     const nav = tabNav[tabId];
     fetchSiteScore(tab.url, (data, status) => {
       rememberTab(tabId, nav, tab.url, data, status);
-      if (data) {
-        chrome.action.setBadgeText({ tabId, text: String(data.score) });
-        chrome.action.setBadgeBackgroundColor({ tabId, color: getBadgeColor(data.score) });
-        chrome.action.setTitle({ tabId, title: `TrustScore: ${data.score}/100 — ${data.tier}` });
-      } else {
-        chrome.action.setBadgeText({ tabId, text: "" });
-        chrome.action.setTitle({ tabId, title: "TrustModel Safety Check — No score yet for this site" });
-      }
+      paintBadge(tabId, data);
     });
   }
 });
@@ -187,6 +195,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     fetchSiteScore(request.url, (data, status) => {
       // Write by tabId so popup can read it without needing tab.url.
       rememberTab(tabId, nav, request.url, data, status);
+      // The toolbar badge too: tabs.onUpdated only sees tab.url on the AI
+      // hosts we have permission for, so on every other site the toolbar
+      // stayed blank (TRUS-2623). Skipped if the tab has moved on.
+      if (tabId && tabNav[tabId] === nav) paintBadge(tabId, data);
       sendResponse(data);
     });
     return true;
