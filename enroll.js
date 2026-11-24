@@ -16,7 +16,9 @@
 
 const DEFAULT_API_BASE = "https://api.trustmodel.ai";
 const ENROLL_KEY = "tmEnroll"; // { ingestToken, apiBase, email, org }
-const SENT_KEY = "shadowAISent"; // { [serviceId]: hitsReportedSoFar } — the watermark
+// The watermark: { [serviceId]: { hits, firstSeen } } — hits reported so far for
+// that inventory entry. Older versions stored a bare number.
+const SENT_KEY = "shadowAISent";
 
 // Canonical destination host per AI service, chosen to match the backend
 // catalog (shadow_ai.ai_catalog). Services the backend doesn't catalog are
@@ -69,7 +71,11 @@ function applyManagedConfig(cb) {
       return;
     }
     getEnrollment((existing) => {
-      if (existing && existing.ingestToken) {
+      // Keep an existing enrollment, unless the server refused it (401) and IT
+      // has since pushed a different token (TRUS-2622).
+      const replaceRefused =
+        existing && existing.needsReconnect && existing.ingestToken !== mc.ingest_token;
+      if (existing && existing.ingestToken && !replaceRefused) {
         cb && cb(false);
         return;
       }
@@ -112,6 +118,14 @@ function connectWithInvite(inviteCode, apiBase, cb) {
     .catch((e) => cb && cb({ ok: false, error: String(e.message || e) }));
 }
 
+// The hits already reported for this inventory entry (TRUS-2622). "Clear"
+// starts new entries (new firstSeen), whose hits are reported from 0: the old
+// total used to stay as the watermark, so nothing was reported after a clear.
+function reportedSoFar(prev, e) {
+  if (typeof prev === "number") return prev <= (e.hits || 0) ? prev : 0; // older versions
+  return prev && prev.firstSeen === e.firstSeen ? prev.hits : 0;
+}
+
 // Send the hit-count DELTA per AI host since the last successful report, so the
 // backend (which sums) never double-counts. The watermark only advances on a
 // 2xx, so a failed/queued send is retried whole next time.
@@ -119,6 +133,11 @@ function transmitNow(cb) {
   getEnrollment((enr) => {
     if (!enr || !enr.ingestToken) {
       cb && cb({ skipped: "not_enrolled" });
+      return;
+    }
+    if (enr.needsReconnect) {
+      // The server refused this token; don't retry it every 15 min (TRUS-2622).
+      cb && cb({ skipped: "reconnect_needed" });
       return;
     }
     chrome.storage.local.get([SHADOW_KEY, SENT_KEY], (res) => {
@@ -130,10 +149,10 @@ function transmitNow(cb) {
       for (const e of Object.values(inv)) {
         const host = REPORT_HOST[e.id];
         if (!host) continue;
-        const delta = (e.hits || 0) - (sent[e.id] || 0);
+        const delta = (e.hits || 0) - reportedSoFar(sent[e.id], e);
         if (delta > 0) {
           observations.push({ host, observed_at: now, count: delta });
-          nextSent[e.id] = e.hits;
+          nextSent[e.id] = { hits: e.hits, firstSeen: e.firstSeen };
         }
       }
       if (observations.length === 0) {
@@ -149,6 +168,14 @@ function transmitNow(cb) {
         body: JSON.stringify({ observations }),
       })
         .then((r) => {
+          if (r.status === 401) {
+            // Token revoked or rotated (member removed, re-invited): stop and
+            // say so in the popup instead of "Reporting to …" (TRUS-2622).
+            saveEnrollment({ ...enr, needsReconnect: true }, () =>
+              cb && cb({ error: "ingest 401", reconnectNeeded: true }),
+            );
+            return;
+          }
           if (!r.ok) throw new Error(`ingest ${r.status}`);
           chrome.storage.local.set({ [SENT_KEY]: nextSent }, () =>
             cb && cb({ sent: observations.length }),

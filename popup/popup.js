@@ -214,6 +214,19 @@ function renderWorkspace(enr) {
   const el = document.getElementById("workspace");
   if (!el) return;
 
+  // TRUS-2622: the server refused this connection (401), so nothing is being
+  // reported. Say so rather than "Reporting to …".
+  if (enr && enr.ingestToken && enr.needsReconnect) {
+    el.innerHTML =
+      `<h3>Workspace</h3>` +
+      `<div class="ws-err">Reporting stopped: your organization no longer accepts this connection.</div>` +
+      (enr.managed
+        ? `<div class="ws-note">Ask your IT team to reconnect this browser.</div>`
+        : connectFormHtml("Reconnect with the code from a new invite email."));
+    if (!enr.managed) wireConnectForm();
+    return;
+  }
+
   if (enr && enr.ingestToken) {
     const org = enr.org || "your organization";
     const who = enr.email ? ` as ${enr.email}` : "";
@@ -245,13 +258,25 @@ function renderWorkspace(enr) {
 
   el.innerHTML =
     `<h3>Workspace</h3>` +
-    `<div class="ws-note">Invited by your employer? Paste the code from your invite email to connect &mdash; ` +
-    `your AI usage is then shared with your organization. Nothing is sent until you connect.</div>` +
+    connectFormHtml(
+      "Invited by your employer? Paste the code from your invite email to connect &mdash; " +
+      "your AI usage is then shared with your organization. Nothing is sent until you connect.",
+    );
+  wireConnectForm();
+}
+
+function connectFormHtml(note) {
+  return (
+    `<div class="ws-note">${note}</div>` +
     `<div class="ws-row">` +
       `<input class="ws-input" id="ws-code" placeholder="Invite code" />` +
       `<button class="ws-btn" id="ws-connect">Connect</button>` +
     `</div>` +
-    `<div class="ws-err" id="ws-err"></div>`;
+    `<div class="ws-err" id="ws-err"></div>`
+  );
+}
+
+function wireConnectForm() {
   const btn = document.getElementById("ws-connect");
   btn.addEventListener("click", () => {
     const code = document.getElementById("ws-code").value;
