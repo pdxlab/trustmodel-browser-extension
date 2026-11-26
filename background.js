@@ -253,15 +253,15 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
 
 // ── Shadow AI: observe outbound traffic to the curated AI endpoints only ──
 // (No request bodies are read; detection is metadata only — see ai-detect.js.)
+// One hit is one AI API call (TRUS-2621): fetch and XHR, which in Chrome also
+// covers EventSource and fetches from workers, plus WebSockets. Page loads,
+// images (the favicon), scripts, stylesheets and beacons are not counted, so
+// opening chatgpt.com no longer counts as 2–3 hits on its own.
 chrome.webRequest.onBeforeRequest.addListener(
   (details) => {
-    // A page load is counted once, by the content script's recordPageVisit.
-    // Counting its main_frame request here as well counted each visit twice
-    // (TRUS-2621).
-    if (details.type === "main_frame") return;
     recordDetection(details.url, details.initiator, details.documentUrl);
   },
-  { urls: AI_MATCH_PATTERNS },
+  { urls: AI_MATCH_PATTERNS, types: ["xmlhttprequest", "websocket"] },
   []
 );
 
@@ -321,12 +321,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
   // Keep-alive ping from the popup so the service worker stays alive.
   if (request.action === "ping") {
-    sendResponse({ ok: true });
-    return true;
-  }
-  if (request.action === "recordPageVisit") {
-    const src = (sender && sender.tab && sender.tab.url) || request.url;
-    recordDetection(request.url, src, request.url);
     sendResponse({ ok: true });
     return true;
   }

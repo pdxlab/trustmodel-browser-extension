@@ -11,7 +11,7 @@
  * unless enterprise reporting is explicitly configured (see REPORTING).
  */
 
-// ── Curated AI endpoints. Keep in sync with host_permissions in manifest.json ──
+// ── Curated AI endpoints. Keep in sync with AI_HTTP_PATTERNS below ──
 // Each entry: { id, service, category, host } where host is tested against the
 // request hostname. Match patterns (for the webRequest filter) are derived below.
 const AI_SERVICES = [
@@ -36,8 +36,12 @@ const AI_SERVICES = [
   { id: "poe",         service: "Poe",                 category: "Chat aggregator",host: /(^|\.)poe\.com$/ },
 ];
 
-// webRequest filter + host_permissions parity (hardcoded in manifest too).
-const AI_MATCH_PATTERNS = [
+// The webRequest filter: the only requests the extension observes. The manifest
+// grants host access to all sites (TRUS-2621) because Chrome only reports a
+// request when the extension has access to the page that made it too, so with
+// access to the AI hosts alone, AI calls from any other site went unseen.
+// "*://" matches http and https only, so WebSockets need their own wss:// patterns.
+const AI_HTTP_PATTERNS = [
   "*://*.openai.com/*", "*://chatgpt.com/*", "*://*.openai.azure.com/*",
   "*://*.anthropic.com/*", "*://claude.ai/*",
   "*://generativelanguage.googleapis.com/*", "*://aiplatform.googleapis.com/*", "*://gemini.google.com/*", "*://aistudio.google.com/*",
@@ -47,6 +51,7 @@ const AI_MATCH_PATTERNS = [
   "*://*.githubcopilot.com/*", "*://copilot.microsoft.com/*", "*://api.elevenlabs.io/*",
   "*://api.stability.ai/*", "*://*.character.ai/*", "*://*.poe.com/*",
 ];
+const AI_MATCH_PATTERNS = [...AI_HTTP_PATTERNS, ...AI_HTTP_PATTERNS.map((p) => p.replace("*://", "wss://"))];
 
 function classifyAIRequest(url) {
   try {
