@@ -109,6 +109,7 @@ function fetchSiteScore(url, cb) {
     const waiting = (scoreInflight[domain] = [cb]);
 
     fetch(`${TM_API_BASE}/v1/public/site-score/${encodeURIComponent(domain)}/`, {
+      credentials: "omit", // never the user's trustmodel.ai cookies (TRUS-2617)
       signal: AbortSignal.timeout ? AbortSignal.timeout(10000) : undefined,
     })
       .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
@@ -245,6 +246,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   // own support inbox (TRUS-2549). Replaces the mailto flow.
   if (request.action === "rateRequest") {
     fetch(`${TM_API_BASE}/v1/public/rate-request/`, {
+      credentials: "omit", // no trustmodel.ai cookies (TRUS-2617)
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

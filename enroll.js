@@ -96,6 +96,7 @@ function connectWithInvite(inviteCode, apiBase, cb) {
     return;
   }
   fetch(`${base}/api/v1/shadow-ai/workforce/connect/`, {
+    credentials: "omit", // no trustmodel.ai cookies (TRUS-2617)
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ invite_token: code }),
@@ -141,6 +142,7 @@ function transmitNow(cb) {
         return;
       }
       fetch(`${enr.apiBase}/api/v1/shadow-ai/endpoint/observations/`, {
+        credentials: "omit", // the Bearer token is the only credential (TRUS-2617)
         method: "POST",
         headers: {
           "Content-Type": "application/json",
