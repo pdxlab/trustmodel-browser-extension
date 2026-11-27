@@ -285,13 +285,33 @@ chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === "update") {
     chrome.storage.local.get(null, (all) => {
       // tab:<id> entries were never cleared before TRUS-2620, so drop those too.
-      const toRemove = Object.keys(all).filter(k => k.startsWith("score:") || k.startsWith("tab:"));
+      // cs:<host> was written on every scored page and never read (TRUS-2624).
+      const toRemove = Object.keys(all).filter(
+        (k) => k.startsWith("score:") || k.startsWith("tab:") || k.startsWith("cs:"),
+      );
       if (toRemove.length) chrome.storage.local.remove(toRemove);
     });
   }
   tmBootstrapReporting();
 });
 chrome.runtime.onStartup.addListener(tmBootstrapReporting);
+
+// score:<host> entries past their TTL are never served again, but they were
+// never removed either, so local storage grew into a list of every site
+// visited (TRUS-2624). Pruned on startup and with the 15-minute alarm.
+function pruneScoreCache() {
+  chrome.storage.local.get(null, (all) => {
+    const now = Date.now();
+    const stale = Object.keys(all).filter(
+      (k) => k.startsWith("score:") && !(all[k] && now - all[k].at < SCORE_TTL_MS),
+    );
+    if (stale.length) chrome.storage.local.remove(stale);
+  });
+}
+chrome.runtime.onStartup.addListener(pruneScoreCache);
 chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === "tm-report") transmitNow(() => {});
+  if (alarm.name === "tm-report") {
+    transmitNow(() => {});
+    pruneScoreCache();
+  }
 });

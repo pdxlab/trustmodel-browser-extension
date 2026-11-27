@@ -102,7 +102,7 @@ function buildVerify(name, host, score, verified) {
     return `
       <div class="verify">
         <div class="vtitle">Verified</div>
-        <div class="ws-connected">✓ ${name} has a verified TrustModel evaluation.</div>
+        <div class="ws-connected">✓ <span class="tm-name"></span> has a verified TrustModel evaluation.</div>
       </div>`;
   }
   const verifyUrl = `https://trustmodel.ai/get-verified?domain=${encodeURIComponent(host)}&src=ext`;
@@ -145,7 +145,7 @@ function showScore(data, url) {
   if (data.score < 65) {
     ctaHtml = `
       <div class="cta-low">
-        <p><strong>${data.name}</strong> scored <strong>${data.score}/100</strong> &mdash; below the "Needs Attention" threshold (65). See the verification options below.</p>
+        <p><strong class="tm-name"></strong> scored <strong>${data.score}/100</strong> &mdash; below the "Needs Attention" threshold (65). See the verification options below.</p>
       </div>
     `;
   }
@@ -158,11 +158,11 @@ function showScore(data, url) {
           <div class="out-of" style="color: ${textColor};">/100</div>
         </div>
       </div>
-      <div class="system-name">${data.name}</div>
+      <div class="system-name tm-name"></div>
       <div style="font-size: 10px; color: #94a3b8; margin: 2px 0 6px;">${hostname} · ${String(data.type || "site").toUpperCase()}</div>
-      <span class="tier-badge" style="background: ${tierBg}; color: ${tierText};">${data.tier}</span>${data.verified ? `<span class="prelim-badge" style="background:#dcfce7;color:#15803d;">✓ Verified</span>` : `<span class="prelim-badge">Preliminary</span>`}
+      <span class="tier-badge tm-tier" style="background: ${tierBg}; color: ${tierText};"></span>${data.verified ? `<span class="prelim-badge" style="background:#dcfce7;color:#15803d;">✓ Verified</span>` : `<span class="prelim-badge">Preliminary</span>`}
     </div>
-    ${data.verified ? "" : `<div class="disclaimer"><strong>Preliminary score.</strong> An outside-in estimate from public signals (privacy policy, trust center, security, public AI use) &mdash; not a verified TrustModel evaluation. It can change once ${data.name} completes verification. <a href="https://trustmodel.ai/agentcert" target="_blank" style="color:#0891b2;font-weight:600;">How we score 0–100 →</a></div>`}
+    ${data.verified ? "" : `<div class="disclaimer"><strong>Preliminary score.</strong> An outside-in estimate from public signals (privacy policy, trust center, security, public AI use) &mdash; not a verified TrustModel evaluation. It can change once <span class="tm-name"></span> completes verification. <a href="https://trustmodel.ai/agentcert" target="_blank" style="color:#0891b2;font-weight:600;">How we score 0–100 →</a></div>`}
     ${risksHtml}
     ${posHtml}
     <div class="cta">
@@ -174,6 +174,11 @@ function showScore(data, url) {
     </div>
     ${buildVerify(data.name, hostname, data.score, data.verified)}
   `;
+  // The name and tier come from the API, so they go in as text, never as HTML:
+  // a name with markup rendered links and fetched images in the popup (TRUS-2624).
+  const content = document.getElementById("content");
+  content.querySelectorAll(".tm-name").forEach((el) => { el.textContent = data.name || hostname; });
+  content.querySelectorAll(".tm-tier").forEach((el) => { el.textContent = data.tier || ""; });
   wireRateForm(hostname);
 }
 
