@@ -27,7 +27,7 @@
   <h2>TrustScore lookups (every install)</h2>
   <ul>
     <li>When you open a public website, the extension asks <code>api.trustmodel.ai</code> for that site's TrustScore. The request contains only the site's registrable domain: on <code>acme.slack.com</code> it sends <code>slack.com</code>, on <code>www.bbc.co.uk</code> it sends <code>bbc.co.uk</code>. The subdomain, page path, query string and page content are never sent, and no account, cookie or other identifier of you is attached.</li>
-    <li>No lookup is made for IP addresses, <code>localhost</code>, internal host names without a public domain suffix (such as <code>intranet.corp</code>), or TrustModel's own sites.</li>
+    <li>No lookup is made for IP addresses, <code>localhost</code>, internal host names without a public domain suffix (such as <code>intranet.corp</code>), sites on shared hosting platforms (such as <code>github.io</code> or <code>vercel.app</code>), or TrustModel's own sites.</li>
     <li>A domain is looked up at most once per page load, and results are cached on your device (6 hours for a score, 10 minutes for "no score yet"), so repeat visits usually send nothing.</li>
     <li>As with any web request, our servers also see your IP address. We use lookups only to return the score and to run and secure the service. We do not use them for advertising and do not sell them.</li>
     <li>If TrustModel has no score for a domain yet, the lookup may start an automated assessment of that website's public signals (such as its privacy policy and security pages). The resulting preliminary score for the website may be shown publicly.</li>

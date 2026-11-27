@@ -48,16 +48,17 @@ function scoreTtl(entry) {
 
 // A lookup sends only the registrable domain (TRUS-2617): on acme.slack.com it
 // asks for slack.com, so tenant subdomains, paths and queries never leave the
-// device. Private-registry suffixes (github.io, vercel.app…) are deliberately
-// not used, so app.vercel.app is looked up as vercel.app. IP addresses,
-// localhost and hosts without a public suffix (intranet.corp, printer.local)
-// are not looked up at all.
+// device. Sites on shared hosting platforms (the PSL's private suffixes:
+// github.io, vercel.app, pages.dev…) are not looked up at all: reducing them to
+// the platform's domain would show, say, Vercel's score on anyone's
+// *.vercel.app page, including a phishing page. Neither are IP addresses,
+// localhost and hosts without a public suffix (intranet.corp, printer.local).
 function siteDomain(url) {
   let u;
   try { u = new URL(url); } catch { return null; }
   if (u.protocol !== "https:" && u.protocol !== "http:") return null;
-  const p = tldts.parse(u.hostname);
-  if (!p.domain || p.isIp || !p.isIcann) return null;
+  const p = tldts.parse(u.hostname, { allowPrivateDomains: true });
+  if (!p.domain || p.isIp || !p.isIcann || p.isPrivate) return null;
   if (p.domain === "trustmodel.ai") return null;
   return p.domain;
 }

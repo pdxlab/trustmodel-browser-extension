@@ -29,7 +29,7 @@ SHADOW AI, SURFACED
 Most "AI usage" is invisible. This extension notices your browser's calls to 19 known external AI services — OpenAI/ChatGPT, Anthropic/Claude, Google Gemini, Microsoft & GitHub Copilot, xAI/Grok, Mistral, Cohere, Perplexity, DeepSeek, Hugging Face, ElevenLabs, Stability, Character.AI and more — from any website, including AI features built into other sites, and builds a running inventory of which AI services you've touched, from which pages, and how often. It's Shadow-AI discovery, right in the browser.
 
 PRIVATE BY DESIGN
-- To look up a TrustScore it sends only the site's domain (slack.com, never acme.slack.com or the page address), with no cookies or identifiers.
+- To look up a TrustScore it sends only the site's domain (slack.com, never acme.slack.com or the page address), with no cookies or identifiers. Intranet hosts, IP addresses and sites on shared hosting platforms (github.io, vercel.app…) aren't looked up.
 - Observes only calls to the known AI services above. The contents of your requests and prompts are never read.
 - Your Shadow-AI inventory stays on your device unless you connect it to your organization's workspace. Nothing is sold.
 

@@ -24,7 +24,7 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       return;
     }
     if (entry && !entry.domain) {
-      showNoScore("TrustScores are for public websites. This page isn't looked up.", "");
+      showNoScore("TrustScores cover websites on their own public domain. This page isn't looked up.", "");
       return;
     }
     if (entry) {
