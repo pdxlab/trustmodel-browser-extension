@@ -65,20 +65,33 @@ function pageOriginOf(initiator, documentUrl) {
 // Shape: { [serviceId]: { id, service, category, hits, firstSeen, lastSeen, pages: {origin: count} } }
 const SHADOW_KEY = "shadowAI";
 
+// Every read-modify-write of the inventory runs one at a time (TRUS-2621).
+// Each detection used to do its own get-then-set, so concurrent requests
+// overwrote each other: 42 requests in a burst recorded 3 hits, and the org
+// console is sent these hit counts.
+let shadowQueue = Promise.resolve();
+
+function updateShadow(change) {
+  shadowQueue = shadowQueue.then(() => new Promise((done) => {
+    chrome.storage.local.get([SHADOW_KEY], (res) => {
+      chrome.storage.local.set({ [SHADOW_KEY]: change(res[SHADOW_KEY] || {}) }, done);
+    });
+  }));
+  return shadowQueue;
+}
+
 function recordDetection(url, initiator, documentUrl) {
   const svc = classifyAIRequest(url);
   if (!svc) return;
   const origin = pageOriginOf(initiator, documentUrl);
-  // Don't count the AI service's own first-party UI as "shadow" against itself.
   const now = Date.now();
-  chrome.storage.local.get([SHADOW_KEY], (res) => {
-    const inv = res[SHADOW_KEY] || {};
+  updateShadow((inv) => {
     const e = inv[svc.id] || { id: svc.id, service: svc.service, category: svc.category, hits: 0, firstSeen: now, pages: {} };
     e.hits += 1;
     e.lastSeen = now;
     if (origin && origin !== "unknown") e.pages[origin] = (e.pages[origin] || 0) + 1;
     inv[svc.id] = e;
-    chrome.storage.local.set({ [SHADOW_KEY]: inv });
+    return inv;
   });
 }
 
@@ -95,5 +108,7 @@ function getShadowAI(cb) {
 }
 
 function clearShadowAI(cb) {
-  chrome.storage.local.set({ [SHADOW_KEY]: {} }, () => cb && cb({ ok: true }));
+  // Queued too, so a detection already in flight can't write the old
+  // inventory back over the cleared one.
+  updateShadow(() => ({})).then(() => cb && cb({ ok: true }));
 }

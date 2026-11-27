@@ -220,6 +220,10 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
 // (No request bodies are read; detection is metadata only — see ai-detect.js.)
 chrome.webRequest.onBeforeRequest.addListener(
   (details) => {
+    // A page load is counted once, by the content script's recordPageVisit.
+    // Counting its main_frame request here as well counted each visit twice
+    // (TRUS-2621).
+    if (details.type === "main_frame") return;
     recordDetection(details.url, details.initiator, details.documentUrl);
   },
   { urls: AI_MATCH_PATTERNS },
