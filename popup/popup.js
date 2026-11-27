@@ -9,9 +9,20 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
 
   // Read by tabId — always works with activeTab, no tabs permission needed
   chrome.storage.local.get(["tab:" + tab.id], (res) => {
-    const entry = res["tab:" + tab.id];
+    let entry = res["tab:" + tab.id];
+    // TRUS-2620: never show another site's score. When the tab's URL is known
+    // (activeTab, on a toolbar click), an entry for a different host is ignored.
+    if (entry && tab.url && hostOf(entry.url) !== hostOf(tab.url)) entry = null;
     if (entry && entry.data) {
       showScore(entry.data, entry.url || "");
+      return;
+    }
+    if (entry && entry.unavailable) {
+      showNoScore("TrustScore is temporarily unavailable. Try again in a minute.", "");
+      return;
+    }
+    if (entry) {
+      showNoScore("No TrustScore yet for this site.", hostOf(entry.url));
       return;
     }
     // No cached score yet — the content script hasn't run on this tab.
@@ -26,6 +37,10 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
   });
 });
 
+
+function hostOf(url) {
+  try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return ""; }
+}
 
 function showNoScore(msg, host) {
   let flag = "";
