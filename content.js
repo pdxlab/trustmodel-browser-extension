@@ -6,10 +6,6 @@
 (function() {
   if (window.location.hostname.includes('trustmodel.ai')) return;
 
-  // Shadow-AI detection: content script fires on every page load regardless of
-  // the MV3 service worker's sleep state, so AI web UI visits are always captured.
-  chrome.runtime.sendMessage({ action: 'recordPageVisit', url: window.location.href });
-
   chrome.runtime.sendMessage({ action: 'getScore', url: window.location.href }, (data) => {
     if (!data || !data.score) return;
 
