@@ -9,6 +9,8 @@
 importScripts("ai-detect.js");
 // ── Workspace enrollment + reporting (only transmits when enrolled) ──
 importScripts("enroll.js");
+// ── Public Suffix List, to look up registrable domains only (TRUS-2617) ──
+importScripts("vendor/tldts/index.umd.min.js");
 
 // ── Badge color logic ──
 
@@ -35,6 +37,31 @@ function getBadgeText(score) {
 // offline fallback: a stale bundled score contradicted the live one (TRUS-2620).
 const TM_API_BASE = "https://api.trustmodel.ai";
 const SCORE_TTL_MS = 6 * 60 * 60 * 1000;
+// "No score yet" is cached for a short while, so one page load (the tab
+// listener and the content script both ask) and the next pages on the same
+// site send one lookup, and a site scanned since is still picked up soon.
+const NO_SCORE_TTL_MS = 10 * 60 * 1000;
+
+function scoreTtl(entry) {
+  return entry && entry.data ? SCORE_TTL_MS : NO_SCORE_TTL_MS;
+}
+
+// A lookup sends only the registrable domain (TRUS-2617): on acme.slack.com it
+// asks for slack.com, so tenant subdomains, paths and queries never leave the
+// device. Sites on shared hosting platforms (the PSL's private suffixes:
+// github.io, vercel.app, pages.dev…) are not looked up at all: reducing them to
+// the platform's domain would show, say, Vercel's score on anyone's
+// *.vercel.app page, including a phishing page. Neither are IP addresses,
+// localhost and hosts without a public suffix (intranet.corp, printer.local).
+function siteDomain(url) {
+  let u;
+  try { u = new URL(url); } catch { return null; }
+  if (u.protocol !== "https:" && u.protocol !== "http:") return null;
+  const p = tldts.parse(u.hostname, { allowPrivateDomains: true });
+  if (!p.domain || p.isIp || !p.isIcann || p.isPrivate) return null;
+  if (p.domain === "trustmodel.ai") return null;
+  return p.domain;
+}
 
 function gradeTier(grade, verified) {
   // Maps API letter grade to the canonical tier labels published on trustmodel.ai/agentcert
@@ -46,6 +73,8 @@ function gradeTier(grade, verified) {
   if (grade === "F") return "High Risk";        // <50
   return "Preliminary";
 }
+
+const scoreInflight = {}; // domain → callbacks waiting on the same lookup
 
 function fetchSiteScore(url, cb) {
   // Single source of truth: the same /v1/public/site-score/ endpoint used by
@@ -60,22 +89,28 @@ function fetchSiteScore(url, cb) {
   // "unavailable" when the API couldn't be reached or refused (429, 5xx,
   // timeout), so callers can say so instead of showing a number (TRUS-2620).
 
-  let host;
-  try { host = new URL(url).hostname.replace(/^www\./, ""); } catch { cb(null); return; }
-  if (!host || /(^|\.)trustmodel\.ai$/.test(host)) { cb(null); return; }
+  const domain = siteDomain(url);
+  if (!domain) { cb(null); return; }
 
-  const key = "score:" + host;
+  const key = "score:" + domain;
   chrome.storage.local.get([key], (res) => {
     const cached = res[key];
     // Only serve cache if it came from the live API (source === "api")
     // and hasn't expired. Static-DB entries are never cached, so they
     // never block a fresh API fetch.
-    if (cached && (cached.source === "api" || !cached.source) && Date.now() - cached.at < SCORE_TTL_MS) {
+    if (cached && (cached.source === "api" || !cached.source) && Date.now() - cached.at < scoreTtl(cached)) {
       cb(cached.data);
       return; // cache hit — popup.js reads score:<host> directly, no extra write needed
     }
 
-    fetch(`${TM_API_BASE}/v1/public/site-score/${encodeURIComponent(host)}/`, {
+    // One request per domain at a time. The tab listener and the content
+    // script both ask on every page load, and each used to send its own
+    // request (TRUS-2617).
+    if (scoreInflight[domain]) { scoreInflight[domain].push(cb); return; }
+    const waiting = (scoreInflight[domain] = [cb]);
+
+    fetch(`${TM_API_BASE}/v1/public/site-score/${encodeURIComponent(domain)}/`, {
+      credentials: "omit", // never the user's trustmodel.ai cookies (TRUS-2617)
       signal: AbortSignal.timeout ? AbortSignal.timeout(10000) : undefined,
     })
       .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
@@ -84,7 +119,7 @@ function fetchSiteScore(url, cb) {
         if (j && j.assessed && j.trust_score != null) {
           const verified = j.score_tier === "verified" || j.score_tier === "monitored";
           data = {
-            name:        j.name || host,
+            name:        j.name || domain,
             score:       Math.round(Number(j.trust_score)), // 0-100 — supply-chain canonical
             grade:       j.grade || "",
             tier:        gradeTier(j.grade, verified),
@@ -92,21 +127,25 @@ function fetchSiteScore(url, cb) {
             verified,
             preliminary: !verified,
           };
-          // Cache API result — this is the shared truth across all three surfaces
-          // score:<host> is the single cache key — popup.js reads it directly
-          // from storage without a SW round-trip (MV3 blank popup fix).
-          chrome.storage.local.set({ [key]: { at: Date.now(), source: "api", data } });
         } else {
           // Site is reachable but unassessed — no score to show
           data = null;
         }
-        cb(data);
+        // Cache API result — this is the shared truth across all three surfaces.
+        // "No score" is cached too, for NO_SCORE_TTL_MS (TRUS-2617).
+        chrome.storage.local.set({ [key]: { at: Date.now(), source: "api", data } });
+        return [data];
       })
       .catch(() => {
         // API unreachable, rate-limited or erroring: no number at all. The
         // bundled table used to stand in here with a different, stale score
         // (openai.com 89 "Highly Trusted" against a live 52/D) (TRUS-2620).
-        cb(null, "unavailable");
+        return [null, "unavailable"];
+      })
+      .then(([data, status]) => {
+        // Always runs, so a failed lookup never leaves the domain stuck in flight.
+        delete scoreInflight[domain];
+        waiting.forEach((f) => f(data, status));
       });
   });
 }
@@ -123,7 +162,8 @@ const tabNav = {}; // tabId → page loads seen; in memory, so lost on SW restar
 function rememberTab(tabId, nav, url, data, status) {
   if (!tabId || tabNav[tabId] !== nav) return;
   chrome.storage.local.set({
-    ["tab:" + tabId]: { data: data || null, url, unavailable: status === "unavailable" },
+    // domain: what was looked up, and what the popup's request form names.
+    ["tab:" + tabId]: { data: data || null, url, domain: siteDomain(url), unavailable: status === "unavailable" },
   });
 }
 
@@ -207,6 +247,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   // own support inbox (TRUS-2549). Replaces the mailto flow.
   if (request.action === "rateRequest") {
     fetch(`${TM_API_BASE}/v1/public/rate-request/`, {
+      credentials: "omit", // no trustmodel.ai cookies (TRUS-2617)
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -303,7 +344,7 @@ function pruneScoreCache() {
   chrome.storage.local.get(null, (all) => {
     const now = Date.now();
     const stale = Object.keys(all).filter(
-      (k) => k.startsWith("score:") && !(all[k] && now - all[k].at < SCORE_TTL_MS),
+      (k) => k.startsWith("score:") && !(all[k] && now - all[k].at < scoreTtl(all[k])),
     );
     if (stale.length) chrome.storage.local.remove(stale);
   });

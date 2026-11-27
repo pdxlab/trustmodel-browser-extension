@@ -13,16 +13,22 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     // TRUS-2620: never show another site's score. When the tab's URL is known
     // (activeTab, on a toolbar click), an entry for a different host is ignored.
     if (entry && tab.url && hostOf(entry.url) !== hostOf(tab.url)) entry = null;
+    // entry.domain is the registrable domain the score was looked up for
+    // (TRUS-2617); the request form and "Get Verified" name it too.
     if (entry && entry.data) {
-      showScore(entry.data, entry.url || "");
+      showScore(entry.data, entry.domain || "");
       return;
     }
     if (entry && entry.unavailable) {
       showNoScore("TrustScore is temporarily unavailable. Try again in a minute.", "");
       return;
     }
+    if (entry && !entry.domain) {
+      showNoScore("TrustScores cover websites on their own public domain. This page isn't looked up.", "");
+      return;
+    }
     if (entry) {
-      showNoScore("No TrustScore yet for this site.", hostOf(entry.url));
+      showNoScore("No TrustScore yet for this site.", entry.domain);
       return;
     }
     // No cached score yet — the content script hasn't run on this tab.
@@ -114,7 +120,7 @@ function buildVerify(name, host, score, verified) {
     </div>`;
 }
 
-function showScore(data, url) {
+function showScore(data, hostname) {
   // Same bands and colours as the toolbar and floating badges (TRUS-2623).
   const color = data.score >= 90 ? "#22c55e" : data.score >= 75 ? "#3b82f6" : data.score >= 65 ? "#a3e635" : data.score >= 50 ? "#f59e0b" : "#ef4444";
   const textColor = data.score >= 75 ? "#064e3b" : data.score >= 50 ? "#7c2d12" : "#7f1d1d";
@@ -128,9 +134,6 @@ function showScore(data, url) {
     chrome: "https://trustmodel.ai/chrome-extensions",
   };
   const detailUrl = typeUrls[data.type] || "https://trustmodel.ai/leaderboard";
-
-  let hostname;
-  try { hostname = new URL(url).hostname.replace("www.", ""); } catch { hostname = ""; }
 
   let risksHtml = "";
   if (data.riskFindings && data.riskFindings.length) {

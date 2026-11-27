@@ -15,39 +15,65 @@
 </style>
 </head>
 <body>
+  <!-- Keep in sync with the live page: trustclone-plan-builder src/pages/ChromeExtensionPrivacy.tsx -->
   <h1>Privacy Policy — TrustModel Safety Check</h1>
   <div class="date">Chrome Extension · Last updated: November 2026</div>
 
-  <div class="box"><b>Short version:</b> this extension does not collect, transmit, or sell any of your data. Everything it does happens on your device.</div>
+  <div class="box"><b>Short version:</b> to show a TrustScore, the extension sends TrustModel the domain of each public website you visit (for example <code>slack.com</code>, never <code>acme.slack.com</code> or the page address). It also keeps a list, on your device, of the AI services your browser calls; that list leaves your device only if you connect the extension to your organization's workspace. It never reads the content of pages, requests, prompts or messages, and we never sell your data.</div>
 
   <h2>What the extension does</h2>
-  <p>TrustModel Safety Check shows an independent TrustScore for AI systems and websites you visit, and detects when your browser communicates with known external AI platforms (for example OpenAI, Anthropic, Google Gemini, Microsoft/GitHub Copilot) so you can see your own "Shadow AI" usage.</p>
+  <p>TrustModel Safety Check shows an independent TrustScore for the websites you visit, and detects when your browser calls known external AI services (for example OpenAI, Anthropic, Google Gemini, Microsoft and GitHub Copilot), so you, and your organization's IT if you connect a workspace, can see "Shadow AI" usage.</p>
 
-  <h2>Data we collect and send</h2>
-  <p><b>None is sent off your device.</b> This version of the extension does not transmit any data to TrustModel or to any third party. There are no analytics, no accounts, and no tracking.</p>
-
-  <h2>What is stored locally (on your device)</h2>
+  <h2>TrustScore lookups (every install)</h2>
   <ul>
-    <li>A local inventory of the AI platforms your browser has contacted: the AI service name, the originating page's origin, a hit count, and timestamps. This is kept in the browser's local storage and can be cleared any time from the extension popup.</li>
-    <li>Extension settings, if any.</li>
+    <li>When you open a public website, the extension asks <code>api.trustmodel.ai</code> for that site's TrustScore. The request contains only the site's registrable domain: on <code>acme.slack.com</code> it sends <code>slack.com</code>, on <code>www.bbc.co.uk</code> it sends <code>bbc.co.uk</code>. The subdomain, page path, query string and page content are never sent, and no account, cookie or other identifier of you is attached.</li>
+    <li>No lookup is made for IP addresses, <code>localhost</code>, internal host names without a public domain suffix (such as <code>intranet.corp</code>), sites on shared hosting platforms (such as <code>github.io</code> or <code>vercel.app</code>), or TrustModel's own sites.</li>
+    <li>A domain is looked up at most once per page load, and results are cached on your device (6 hours for a score, 10 minutes for "no score yet"), so repeat visits usually send nothing.</li>
+    <li>As with any web request, our servers also see your IP address. We use lookups only to return the score and to run and secure the service. We do not use them for advertising and do not sell them.</li>
+    <li>If TrustModel has no score for a domain yet, the lookup may start an automated assessment of that website's public signals (such as its privacy policy and security pages). The resulting preliminary score for the website may be shown publicly.</li>
   </ul>
-  <p>We never read the <i>contents</i> of your network requests, prompts, messages, or page content. Detection is based on request metadata (the destination AI endpoint) only.</p>
+
+  <h2>Request form (only when you use it)</h2>
+  <p>If you use the form in the popup to ask a site's owner to get verified, the extension sends your email address and the site's domain to TrustModel. We email you a link to confirm the request. Only after you confirm do we send the site's support address a short notice, which does not include your email address.</p>
+
+  <h2>Shadow-AI detection (on your device)</h2>
+  <ul>
+    <li>The extension notices calls your browser makes to a fixed list of known AI services (OpenAI/ChatGPT, Azure OpenAI, Anthropic/Claude, Google Gemini/Vertex AI, xAI/Grok, Mistral, Cohere, Perplexity, DeepSeek, Hugging Face, Replicate, Together AI, Groq, GitHub Copilot, Microsoft Copilot, ElevenLabs, Stability AI, Character.AI and Poe), whichever website makes them, including AI features built into other sites.</li>
+    <li>Each API call (fetch, XHR or WebSocket) to one of those services counts once. Page loads, images, scripts, stylesheets and tracking beacons are not counted.</li>
+    <li>For each service it records, on your device: the service, the origin of each page that called it (for example <code>https://intranet.example.com</code>), the number of calls and when they happened. It does not read the content of requests or responses (prompts, messages, files). No other requests are observed, and nothing is modified or blocked.</li>
+    <li>Unless you connect a workspace, this list never leaves your device. You can clear it at any time from the popup.</li>
+  </ul>
+
+  <h2>Connected mode (only if you or your organization connect it)</h2>
+  <p>You can connect the extension to your organization's TrustModel workspace by entering an invite code, or your organization can connect it through managed-device policy. When connected, right after you connect, every 15 minutes, and when you click "Report now", the extension sends your organization's workspace, for each AI service: its host name (for example <code>chatgpt.com</code>), the number of calls since the last report, and the time. The report is attributed to the work email or identifier your organization set up. The page origins in the local list are not sent.</p>
+  <p>You can disconnect at any time from the popup; managed deployments follow your organization's policy. If your organization stops accepting reports from the extension, reporting stops and the popup says so.</p>
+
+  <h2>What is stored on your device</h2>
+  <ul>
+    <li>The Shadow-AI list described above.</li>
+    <li>Cached TrustScores, by domain. They expire after 6 hours ("no score yet" after 10 minutes), and expired entries are removed regularly.</li>
+    <li>The score shown for each open tab, removed when the tab moves to another page or closes.</li>
+    <li>Where you placed the on-page badge.</li>
+    <li>Your workspace connection, if you connect one (the organization, your email, an access token, and how many calls have already been reported).</li>
+  </ul>
 
   <h2>Permissions and why they're needed</h2>
   <ul>
-    <li><code>activeTab</code> — read the current tab's URL to show its TrustScore.</li>
-    <li><code>storage</code> — keep the local Shadow-AI inventory and settings on your device.</li>
-    <li><code>webRequest</code> and host access to a fixed list of AI-platform domains — observe (never modify) requests to those <b>specific AI services only</b>, to detect Shadow-AI usage. No other websites are accessed by the extension's background worker.</li>
-    <li>On-page indicator — a small, read-only badge shown on scored sites; it reads only the page's URL.</li>
+    <li><code>activeTab</code>: the current tab, to show its TrustScore when you click the toolbar icon.</li>
+    <li><code>storage</code>: the on-device data listed above.</li>
+    <li><code>alarms</code>: the 15-minute report (sent only when connected) and clearing expired cached scores.</li>
+    <li><code>webRequest</code>: to notice calls to the listed AI services. It never modifies or blocks requests.</li>
+    <li>Access to all websites (http, https and secure WebSockets): Chrome only lets an extension see a call to an AI service if it can also access the page that made the call, so this is what lets the extension notice AI features built into other sites. The extension observes only requests to the listed AI services. Chrome describes this as "Read and change all your data on all websites", the same warning the on-page badge already required.</li>
+    <li>On-page badge on all websites: shows the site's TrustScore. It reads only the page's address, which stays inside the extension; only the domain is sent for the lookup.</li>
   </ul>
 
   <h2>Data sharing &amp; sale</h2>
-  <p>We do not sell your data and do not share it with third parties. There is nothing to share, because nothing leaves your device.</p>
+  <p>We do not sell your data or use it for advertising. Domain lookups and requests from the form go to TrustModel. When you are connected, the AI-usage report goes to your organization's TrustModel workspace for its IT and security visibility.</p>
 
-  <h2>Enterprise/managed deployments</h2>
-  <p>Organizations may separately deploy a managed version of this tool that reports an AI-usage inventory to their own TrustModel tenant for IT visibility. That is a distinct, IT-administered distribution governed by the organization's own policies and agreement — it is not this public extension.</p>
+  <h2>Your choices</h2>
+  <p>TrustScore lookups are how the extension works; to stop them, disable or remove the extension. You can use Shadow-AI detection without ever connecting a workspace, clear the local list at any time, and disconnect from the popup.</p>
 
   <h2>Contact</h2>
-  <p>Questions: <a href="mailto:privacy@trustmodel.ai">privacy@trustmodel.ai</a> · <a href="https://trustmodel.ai">trustmodel.ai</a></p>
+  <p>Questions: <a href="mailto:info@trustmodel.ai">info@trustmodel.ai</a> · <a href="https://trustmodel.ai">trustmodel.ai</a></p>
 </body>
 </html>
