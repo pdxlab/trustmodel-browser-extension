@@ -115,7 +115,8 @@ function buildVerify(name, host, score, verified) {
 }
 
 function showScore(data, url) {
-  const color = data.score >= 90 ? "#22c55e" : data.score >= 75 ? "#3b82f6" : data.score >= 65 ? "#a3e635" : data.score >= 50 ? "#f59e0b" : "#f97316";
+  // Same bands and colours as the toolbar and floating badges (TRUS-2623).
+  const color = data.score >= 90 ? "#22c55e" : data.score >= 75 ? "#3b82f6" : data.score >= 65 ? "#a3e635" : data.score >= 50 ? "#f59e0b" : "#ef4444";
   const textColor = data.score >= 75 ? "#064e3b" : data.score >= 50 ? "#7c2d12" : "#7f1d1d";
   const tierBg = data.score >= 90 ? "#dcfce7" : data.score >= 75 ? "#dbeafe" : data.score >= 65 ? "#ecfccb" : data.score >= 50 ? "#fef3c7" : "#fee2e2";
   const tierText = data.score >= 90 ? "#15803d" : data.score >= 75 ? "#1e40af" : data.score >= 65 ? "#3f6212" : data.score >= 50 ? "#92400e" : "#991b1b";
